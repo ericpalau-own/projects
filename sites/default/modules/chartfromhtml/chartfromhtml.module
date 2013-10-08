@@ -1,0 +1,22 @@
+<?php
+// $Id: chartfromhtml.module $
+
+/**
+ * @file
+ * chartfromhtml module
+ *
+ * this very simple module was put together by mcdruid.co.uk
+ *
+ * and is based on
+ *    http://www.rsc-ne-scotland.org.uk/mashe/2008/06/generating-charts-from-accessible-data-tables-using-the-google-charts-api
+ * which was based on
+ *    http://www.wait-till-i.com/2008/01/08/generating-charts-from-accessible-data-tables-using-the-google-charts-api
+ */
+
+/**
+ * Implementation of hook_init().
+ */
+function chartfromhtml_init() {
+  drupal_add_js(drupal_get_path('module', 'chartfromhtml') . '/chartfromhtml.js', 'module', 'footer');
+}
+

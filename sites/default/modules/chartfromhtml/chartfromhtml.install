@@ -1,0 +1,21 @@
+<?php
+// $Id: chartfromhtml.install $
+
+/**
+ * @file
+ * Install, update, and uninstall functions for chartfromhtml
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function chartfromhtml_install() {
+  // nothing to do
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function chartfromhtml_uninstall() {
+  // nothing to do
+}

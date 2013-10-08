@@ -1,0 +1,61 @@
+<?php
+
+/**
+ * @file
+ * Redirects user to login page even if not logged in.
+ *
+ * This module makes mandatory to be logged to use the site. Also aims to
+ * integrate its behavior with another modules, although not always easy.
+ *
+ * Its code is executed in every page request, so is important to keep in mind
+ * the optimization of every portion of code we put here.
+ */
+
+/**
+ * Implementats of hook_init().
+ */
+function projects_require_login_init() {
+  global $user;
+
+  // Ignore from already logged in users.
+  if ($user->uid) {
+    return;
+  }
+
+  // Not makes anything when cas module is enabled. It has a similar behavior.
+  if (function_exists('cas_init')) {
+    return;
+  }
+
+  // Ignore CLI requests.
+  if (php_sapi_name() === 'cli') {
+    return;
+  }
+
+  // Ignore requests when site is offline.
+  if (variable_get('site_offline', 0)) {
+    return;
+  }
+
+  // Ignore OpenID related requests.
+  if (isset($_SESSION['openid']['service']['uri']) || isset($_SESSION['openid']['claimed_id'])) {
+    return;
+  }
+
+  // Ignore request if there is already attempt to login, lost password form,
+  // register (if enabled) or reset password link.
+  if (arg(0) === 'user') {
+    if (in_array(arg(1), array(NULL, 'password', 'register', 'reset'))) {
+      return;
+    }
+  }
+
+  drupal_set_message(t('You must login to use this site.'));
+  $params = $_GET;
+  $destination = $params['q'];
+  unset($params['q']);
+  if (!empty($params)) {
+    $destination .= '?' . http_build_query($params);
+  }
+  drupal_goto('user', array('query' => array('destination' => $destination)));
+}

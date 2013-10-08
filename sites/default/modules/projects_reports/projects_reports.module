@@ -1,0 +1,328 @@
+<?php
+
+/**
+ * @file
+ * Create a new page with needed tables and graphs
+ * 
+ * This module extracts all projects by workflow for all the clients
+ */
+
+
+/**
+ * Implements hook_menu().
+ */
+function projects_reports_menu() {
+  $items = array();
+  $items['reports/clients'] = array(
+    'title' => 'Client reports',
+    'page callback' => 'projects_reports_clients_page',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_NORMAL_ITEM,
+    'menu-name' => 'main-menu'
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function projects_reports_permission() {
+  return array(
+    'access clients reports' => array(
+      'title' => t('Access clients reports'),
+      'description' => t('Access clients reports page to see the table and the graphs.'),
+    ),
+  );
+}
+
+
+/**
+ * Process requests for 'reports/clients' path.
+ */
+function projects_reports_clients_graph() {
+	// Include Google Charts script
+	drupal_add_js('https://www.google.com/jsapi', 'external');
+	drupal_add_js(drupal_get_path('module', 'projects_reports').'/js/chartfromhtml.js');
+	return '<div id="visualization"></div>';
+}
+
+/**
+ * Process requests for 'reports/clients' path.
+ */
+function projects_reports_clients_page() {
+  // Get clients list
+  $clients = taxonomy_get_tree(3);
+  
+  // Get workflow states
+  $workflows = workflow_get_workflow_states_by_type('project');
+  
+  // Unset creation state
+  unset($workflows[0]);
+
+  // Prepare table header
+  $header = array();
+
+  // First header item is static. It will contain the status column
+  $header[] = t('status');  
+  
+  // Add a header entry foreach client
+  foreach ($clients as $client) {
+    // Add client to the header list
+    $header[] = $client->name;
+  }
+  
+  // Last header item is static. It will contain the sum of each row, the status total projects
+  $header[] = array(
+     'data' => t('total'),
+     'class' => 'highlight'
+    );
+    
+  // Initialize table data.  
+  $rows = array();
+  
+  // Prepare content data 
+  // Each row will be a workflow status
+  foreach ($workflows as $key => $wf) {
+  	$row = array();
+  	// Initialize total project cont for workflow status
+  	$total_project_cont = 0;
+  	
+  	// The first item for each row will be the workflow status label
+  	$row[] = $wf->state;
+  	
+  	// Foreach client, we check the number of projects for the current state and add them to the row array
+	  foreach ($clients as $client) {
+	  	// We init the project cont
+	  	$nodes_related_pro = 0;
+	  	// Get all project from client $client with the status $wf->sid
+	  	$nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+	  	//Store them in the row array
+	  	$row[] = count($nodes_related_pro);
+	  	// We sum the project cont to the total project cont for current workflow status
+	  	$total_project_cont += count($nodes_related_pro);
+	  }
+	  // The last item of the row will be the sum of all project of the current state
+	  $row[] = array(
+	   'data' => $total_project_cont,
+	   'class' => 'highlight'
+	  );
+	  // Add row to the total rows array
+	  $rows[] = $row;
+  }
+  
+  // Prepare table to theme it
+  $variables = array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array(),
+    'caption' => '',
+    'colgroups' => array(),
+    'sticky' => '',
+    'empty' => t('No projects found'),
+  );
+  
+  // Return themed table
+  return theme_table($variables) . projects_reports_clients_graph();;
+}
+
+
+
+/**
+ * Process requests for 'reports/clients' path.
+ */
+function _v200_projects_reports_clients_page() {
+  // Get clients list
+  $clients = taxonomy_get_tree(3);
+  
+  // Get workflow states
+  $workflows = workflow_get_workflow_states_by_type('project');
+  
+  // Unset creation state
+  unset($workflows[0]);
+
+  // Prepare table header
+  $header = array();
+
+  // First header item is static. It will contain the status column
+  $header[] = t('status');  
+  
+  // Add a header entry foreach client
+  foreach ($clients as $client) {
+    // Add client to the header list
+    $header[] = $client->name;
+  }
+  
+  // Last header item is static. It will contain the sum of each row, the status total projects
+  $header[] = array(
+     'data' => t('total'),
+     'class' => 'highlight'
+    );
+    
+  // Initialize table data.  
+  $rows = array();
+  
+  // Prepare content data 
+  // Each row will be a workflow status
+  foreach ($workflows as $key => $wf) {
+  	$row = array();
+  	// Initialize total project cont for workflow status
+  	$total_project_cont = 0;
+  	
+  	// The first item for each row will be the workflow status label
+  	$row[] = $wf->state;
+  	
+  	// Foreach client, we check the number of projects for the current state and add them to the row array
+	  foreach ($clients as $client) {
+	  	// We init the project cont
+	  	$nodes_related_pro = 0;
+	  	// Get all project from client $client with the status $wf->sid
+	  	$nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+	  	//Store them in the row array
+	  	$row[] = count($nodes_related_pro);
+	  	// We sum the project cont to the total project cont for current workflow status
+	  	$total_project_cont += count($nodes_related_pro);
+	  }
+	  // The last item of the row will be the sum of all project of the current state
+	  $row[] = array(
+	   'data' => $total_project_cont,
+	   'class' => 'highlight'
+	  );
+	  // Add row to the total rows array
+	  $rows[] = $row;
+  }
+  
+  // Prepare table to theme it
+  $variables = array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array(),
+    'caption' => '',
+    'colgroups' => array(),
+    'sticky' => '',
+    'empty' => t('No projects found'),
+  );
+  
+  // Return themed table
+  return theme_table($variables);
+}
+
+/**
+ * Process requests for 'reports/clients' path.
+ */
+function _v100_projects_reports_clients_page() {
+  // Get clients list
+  $clients = taxonomy_get_tree(3);
+  
+  // Get workflow states
+  $workflows = workflow_get_workflow_states_by_type('project');
+
+  // Prepare table header
+  $header = array();
+  $header[] = t('status');  
+  foreach ($clients as $client) {
+    // Add client to the header list
+    $header[] = $client->name;
+  }
+  $header[] = t('total');
+  // Prepare table data.  
+  $rows = array();
+  
+  // Foreach client, Get all projects and put them in the correct row
+  foreach ($workflows as $key => $wf) {
+  	$row = array();
+  	$total_project_cont = 0;
+  	// Add row label
+  	$row[] = $wf->state;
+	  foreach ($clients as $client) {
+	  	$project_cont = 0;
+	  	// Get all related projects
+	  	$nodes_related = taxonomy_select_nodes($client->tid, false, false, array());
+	  	// Foreach project, check the workflow state, and if it's the current we are looking for, update cont.
+	  	foreach ($nodes_related as $project) {
+//	  		dsm($node->title);
+//	  		dsm(workflow_get_workflow_node_by_nid($project));
+	  		if ($wf->sid == workflow_get_workflow_node_by_nid($project)->sid) {
+	  			$project_cont++;
+	  		}
+	  	}
+	  	$row[] = $project_cont;
+	  	// Add 
+	  }
+	  $rows[] = $row;
+	  // Add total sum
+  }
+  
+  $variables = array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array(),
+    'caption' => '',
+    'colgroups' => array(),
+    'sticky' => '',
+    'empty' => t('No projects found'),
+  );
+  
+  return theme_table($variables);
+}
+
+/**
+ * Return nodes attached to a term with current state attached to the workflow state across all field instances .
+ *
+ * This function requires taxonomy module to be maintaining its own tables,
+ * and will return an empty array if it is not. If using other field storage
+ * methods alternatives methods for listing terms will need to be used.
+ *
+ * @param $tid
+ *   The term ID.
+ * @param $pager
+ *   Boolean to indicate whether a pager should be used.
+ * @param $limit
+ *   Integer. The maximum number of nodes to find.
+ *   Set to FALSE for no limit.
+ * @param $order
+ *   An array of fields and directions.
+ * @param $sid
+ *   The workflow state id
+ *
+ * @return
+ *   An array of nids matching the query.
+ */
+function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $limit = FALSE, $order = array('t.sticky' => 'DESC', 't.created' => 'DESC'), $sid) {
+  if (!variable_get('taxonomy_maintain_index_table', TRUE)) {
+    return array();
+  }
+  $query = db_select('taxonomy_index', 't');
+  $query->addTag('node_access');
+  $query->condition('tid', $tid);
+  if ($pager) {
+    $count_query = clone $query;
+    $count_query->addExpression('COUNT(t.nid)');
+
+    $query = $query->extend('PagerDefault');
+    if ($limit !== FALSE) {
+      $query = $query->limit($limit);
+    }
+    $query->setCountQuery($count_query);
+  }
+  else {
+    if ($limit !== FALSE) {
+      $query->range(0, $limit);
+    }
+  }
+  // HACK INIT
+  // We join the workflow status here, to get only the needed nodes
+  $query->join('workflow_node', 'wn', 't.nid=wn.nid');
+  $query->addField('wn', 'sid');
+  $query->condition('sid', $sid);
+  // HACK END
+  $query->addField('t', 'nid');
+  $query->addField('t', 'tid');
+  foreach ($order as $field => $direction) {
+    $query->orderBy($field, $direction);
+    // ORDER BY fields need to be loaded too, assume they are in the form
+    // table_alias.name
+    list($table_alias, $name) = explode('.', $field);
+    $query->addField($table_alias, $name);
+  }
+  return $query->execute()->fetchCol();
+}

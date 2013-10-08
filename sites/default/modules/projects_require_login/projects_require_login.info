@@ -1,0 +1,4 @@
+name = projects Require Login
+description = "Requires anonymous users to login before using the site."
+package = projects
+core = 7.x
