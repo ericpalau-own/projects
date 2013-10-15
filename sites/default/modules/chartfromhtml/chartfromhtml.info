@@ -1,4 +1,0 @@
-name = Chart from HTML
-description = Allows easy generation of (google) charts from HTML tables
-package = other
-core = 6.x
