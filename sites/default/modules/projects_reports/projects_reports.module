@@ -55,36 +55,75 @@ function projects_reports_theme() {
  */
 
 function projects_reports_clients_graph() {
-	// Include Google Charts script and script
-	drupal_add_js('https://www.google.com/jsapi', 'external');
-	drupal_add_js(drupal_get_path('module', 'projects_reports').'/js/chartfromhtml.js');
+	$chart = array(
+      '#chart_id' => 'test_chart',
+      '#title' => chart_title(t('Bar Chart'), '0000ee', 15),
+      '#type' => CHART_TYPE_BAR_V,
+      '#size' => chart_size(400, 200),
+      '#grid_lines' => chart_grid_lines(10, 5),
+      '#bar_size' => chart_bar_size(15, 5), 
+    );
+    
+	  $chart['#data'][] = array(30, 20, 10);
+	  $chart['#data'][] = array(30, 20, 10);
+	  $chart['#data'][] = array(30, 20, 10);
+
+	  $chart['#labels'][] = 'a';
+	  $chart['#labels'][] = 'b';
+	  $chart['#labels'][] = 'c';
+	  
+	  $chart['#data_colors'][] = chart_unique_color('test_a');
+	  $chart['#data_colors'][] = chart_unique_color('test_b');
+	  $chart['#data_colors'][] = chart_unique_color('test_c');
+
+  return theme('chart', array('chart' => $chart));
+
+/*
 	
-	// Init vars
-	$chart_data = array();
-	
-  // Get clients list
-  $clients = taxonomy_get_tree(3);
-  
   // Get workflow states
   $workflows = workflow_get_workflow_states_by_type('project');
   
-  // Unset creation state
-  unset($workflows[0]);
+  // Delete creation workflow, not needed
+	unset($workflows[0]);
+  
+	// Get clients list
+  $clients = taxonomy_get_tree(3);
+  
+	// Init columns with workflow label
+	$settings['columns']['status'] = array('type' => 'string', 'label' => t('Workflow status'));
+  
+  // Fill columns with workflows
+  foreach ($workflows as $key => $wf) {
+	  $settings['columns'][$wf->sid] = array('type' => 'number', 'label' => $wf->state);
+	  $settings['columns'][$wf->sid.'_tootltip'] = array('type' => 'string', 'label' => '', 'role' => 'tooltip');
+  }
 
+  // Fill rows
   foreach ($clients as $client) {
-  	$row = array();
-  	$row[] = $client->name;
-  	foreach ($workflows as $key => $wf) {
+    $row = array();
+    $row['status'] = $client->name;
+    foreach ($workflows as $key => $wf) {
       $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
       //Store them in the row array
-      $row[] = count($nodes_related_pro);
-      $row[] = 'Client '.$client->name.': '.count($nodes_related_pro).' projects in '.$wf->state.' status.';
-  	}
-  	$chart_data[] = $row;
+      $row[$wf->sid] = count($nodes_related_pro);
+      $row[$wf->sid.'_tooltip'] = 'Client '.$client->name.': '.count($nodes_related_pro).' projects in '.$wf->state.' status.';
+    }
+    
+    $settings['rows'][] = $row;
   }
+
+	// Finally, add the settings. This will load and execute
+	// google_charts.js.
+	
   
-  
-	return theme('projects_reports_graph', array('chart_data' => $chart_data, 'workflow' => $workflows));
+//  dsm($chart_data);
+//  dsm(count($chart_data));
+//  dsm($chart_columns);
+//  dsm(count($chart_columns));
+//  dsm($chart_header);
+//  dsm(count($chart_header));
+	return theme('projects_reports_graph');
+*/
 }
 
 /**
@@ -94,46 +133,8 @@ function projects_reports_clients_graph() {
  */
 function theme_projects_reports_graph($variables) {
 	$output = '';
-	/*
+	$output = '<div id="dashboard-1"></div>';
 	
-	$output .= '<script type="text/javascript">';
-  $output .= "google.load('visualization', '1', {packages: ['corechart']});";
-  $output .= "google.setOnLoadCallback(drawVisualization);";
-
-
-
-  $output .= "function drawVisualization() {
-  var data = new google.visualization.DataTable();
-  data.addColumn('string', 'workflow status');
-  ";
-  foreach ($variables['workflow'] as $wf) {
-  	$output .= "data.addColumn('number', '".$wf->state."');";
-  	$output .= "data.addColumn({type: 'string', role: 'tooltip'});";
-  }
-  $output .= "data.addRows([";  
-  foreach ($variables['chart_data'] as $row) {
-  	$data = '';
-  	$data = implode('","', $row);
-  	$output .= "[".$data."],";
-  }
-  $output .= ']);';
-
-  $output .= "
-  // Create and draw the visualization.
-  new google.visualization.ColumnChart(document.getElementById('visualization')).
-  draw(data,
-       {title:'Yearly Coffee Consumption by Country',
-        isStacked: true,
-        width:600, height:400,
-        vAxis: {title: 'number or projects'},
-        hAxis: {title: 'Clients'}}
-      );
-}";
-
-$output .= '</script>';
-*/
-$output .= '<div id="visualization"></div>';
-
 	return $output;
 }
 
