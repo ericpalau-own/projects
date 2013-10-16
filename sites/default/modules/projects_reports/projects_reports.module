@@ -49,12 +49,26 @@ function projects_reports_theme() {
   );
 }
 
+function projects_reports_clients_page() {
+	$output = '';
+	
+	// Add table
+	$output .= projects_reports_clients_table();
+	
+	// Add example grapsh
+//	$output .= projects_reports_clients_example_graph();
+	
+	// Add grapsh
+	$output .= projects_reports_clients_graph();
+	
+	return $output;
+}
 
 /**
- * Process requests for 'reports/clients' path.
+ * 
+ * Add example graph
  */
-
-function projects_reports_clients_graph() {
+function projects_reports_clients_example_graph() {
 	$chart = array(
       '#chart_id' => 'test_chart',
       '#title' => chart_title(t('Bar Chart'), '0000ee', 15),
@@ -63,85 +77,82 @@ function projects_reports_clients_graph() {
       '#grid_lines' => chart_grid_lines(10, 5),
       '#bar_size' => chart_bar_size(15, 5), 
     );
-    
-	  $chart['#data'][] = array(30, 20, 10);
-	  $chart['#data'][] = array(30, 20, 10);
-	  $chart['#data'][] = array(30, 20, 10);
+	
+	  $chart['#data'][] = array(30, 20, 10, 40);
+	  $chart['#data'][] = array(30, 20, 10, 40);
+	  $chart['#data'][] = array(30, 20, 10, 40);
 
 	  $chart['#labels'][] = 'a';
 	  $chart['#labels'][] = 'b';
 	  $chart['#labels'][] = 'c';
+	  $chart['#labels'][] = 'd';
 	  
 	  $chart['#data_colors'][] = chart_unique_color('test_a');
 	  $chart['#data_colors'][] = chart_unique_color('test_b');
 	  $chart['#data_colors'][] = chart_unique_color('test_c');
+	  
+	  return theme('chart', array('chart' => $chart));
+}
 
-  return theme('chart', array('chart' => $chart));
+/**
+ * Process requests for 'reports/clients' path.
+ */
 
-/*
-	
+function projects_reports_clients_graph() {
+	$settings = array(
+      '#chart_id' => 'test_chart2',
+      '#title' => chart_title(t('Monthly Client report'), '00ee00', 15),
+      '#type' => CHART_TYPE_BAR_V,
+      '#size' => chart_size(800, 300),
+      '#bar_size' => chart_bar_size(30, 10), 
+      '#adjust_resolution' => TRUE,
+    );
+    
+	  
+	  $settings['#data_colors'][] = chart_unique_color('test_a');
+	  $settings['#data_colors'][] = chart_unique_color('test_b');
+	  $settings['#data_colors'][] = chart_unique_color('test_c');
+	  $settings['#data_colors'][] = chart_unique_color('test_d');
+	  $settings['#data_colors'][] = chart_unique_color('test_e');
+	  $settings['#data_colors'][] = chart_unique_color('test_f');
+
+  
+
   // Get workflow states
   $workflows = workflow_get_workflow_states_by_type('project');
   
   // Delete creation workflow, not needed
 	unset($workflows[0]);
   
+  foreach ($workflows as $key => $wf) {
+    $settings['#legends'][] = $wf->state;
+  }
 	// Get clients list
   $clients = taxonomy_get_tree(3);
-  
-	// Init columns with workflow label
-	$settings['columns']['status'] = array('type' => 'string', 'label' => t('Workflow status'));
-  
-  // Fill columns with workflows
-  foreach ($workflows as $key => $wf) {
-	  $settings['columns'][$wf->sid] = array('type' => 'number', 'label' => $wf->state);
-	  $settings['columns'][$wf->sid.'_tootltip'] = array('type' => 'string', 'label' => '', 'role' => 'tooltip');
+  foreach ($clients as $key => $cl) {
+//  	$settings['#labels'][] = $cl->name;
+  	$settings['#labels'][] = $cl->tid;
+  	
   }
-
-  // Fill rows
-  foreach ($clients as $client) {
-    $row = array();
-    $row['status'] = $client->name;
+  
+  // Fill chart data
     foreach ($workflows as $key => $wf) {
-      $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
-      //Store them in the row array
-      $row[$wf->sid] = count($nodes_related_pro);
-      $row[$wf->sid.'_tooltip'] = 'Client '.$client->name.': '.count($nodes_related_pro).' projects in '.$wf->state.' status.';
-    }
-    
-    $settings['rows'][] = $row;
+      $row = array();
+      foreach ($clients as $client) {
+	      $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+	      //Store them in the row array
+	      $row[] = count($nodes_related_pro);
+	    }
+    $settings['#data'][] = $row;
   }
-
-	// Finally, add the settings. This will load and execute
-	// google_charts.js.
-	
   
-//  dsm($chart_data);
-//  dsm(count($chart_data));
-//  dsm($chart_columns);
-//  dsm(count($chart_columns));
-//  dsm($chart_header);
-//  dsm(count($chart_header));
-	return theme('projects_reports_graph');
-*/
-}
-
-/**
- * 
- * Graph theme function
- * @param unknown_type $variables
- */
-function theme_projects_reports_graph($variables) {
-	$output = '';
-	$output = '<div id="dashboard-1"></div>';
-	
-	return $output;
+  return theme('chart', array('chart' => $settings));
 }
 
 /**
  * Process requests for 'reports/clients' path.
  */
-function projects_reports_clients_page() {
+function projects_reports_clients_table() {
   // Get clients list
   $clients = taxonomy_get_tree(3);
   
@@ -160,7 +171,7 @@ function projects_reports_clients_page() {
   // Add a header entry foreach client
   foreach ($clients as $client) {
     // Add client to the header list
-    $header[] = $client->name;
+    $header[] = $client->name . ' (' . $client->tid . ')';
   }
   
   // Last header item is static. It will contain the sum of each row, the status total projects
@@ -214,7 +225,7 @@ function projects_reports_clients_page() {
   );
   
   // Return themed table
-  return theme_table($variables) . projects_reports_clients_graph();;
+  return theme_table($variables);
 }
 
 
