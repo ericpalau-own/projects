@@ -54,12 +54,13 @@ function projects_reports_clients_page() {
 	
 	// Add table
 	$output .= projects_reports_clients_table();
-	
+
 	// Add example grapsh
 //	$output .= projects_reports_clients_example_graph();
 	
 	// Add grapsh
 	$output .= projects_reports_clients_graph();
+	$output .= projects_reports_clients_graph2();
 	
 	return $output;
 }
@@ -94,45 +95,69 @@ function projects_reports_clients_example_graph() {
 	  return theme('chart', array('chart' => $chart));
 }
 
+
+function projects_reports_clients_graph2() {
+  $chart = array(
+    '#type' => 'chart',
+    '#chart_type' => 'column',
+    '#title' => t('Column simple'),
+    '#chart_library' => 'google',
+  );
+  $chart['male'] = array(
+    '#type' => 'chart_data',
+    '#title' => t('Male'),
+    '#data' => array(10, 20, 30),
+    '#suffix' => 'lbs',
+  );
+  $chart['female'] = array(
+    '#type' => 'chart_data',
+    '#title' => t('Female'),
+    '#data' => array(12, 22, 32),
+    '#suffix' => 'lbs',
+  );
+  $chart['xaxis'] = array(
+    '#type' => 'chart_xaxis',
+    '#labels' => array('Jan', 'Feb', 'Mar'),
+  );
+
+  return drupal_render($chart);
+  
+}
+
+
 /**
  * Process requests for 'reports/clients' path.
  */
 
 function projects_reports_clients_graph() {
 	$settings = array(
-      '#chart_id' => 'test_chart2',
-      '#title' => chart_title(t('Monthly Client report'), '00ee00', 15),
-      '#type' => CHART_TYPE_BAR_V,
-      '#size' => chart_size(800, 300),
-      '#bar_size' => chart_bar_size(30, 10), 
-      '#adjust_resolution' => TRUE,
+    '#chart_id' => 'test_chart2',
+    '#title' => chart_title(t('Monthly Client report graph'), '000000', 30),
+    '#type' => CHART_TYPE_BAR_V,
+    '#size' => chart_size(900, 300),
+    '#bar_size' => chart_bar_size(30, 15), 
+//    '#grid_lines' => chart_grid_lines(10, 30),
     );
     
-	  
-	  $settings['#data_colors'][] = chart_unique_color('test_a');
-	  $settings['#data_colors'][] = chart_unique_color('test_b');
-	  $settings['#data_colors'][] = chart_unique_color('test_c');
-	  $settings['#data_colors'][] = chart_unique_color('test_d');
-	  $settings['#data_colors'][] = chart_unique_color('test_e');
-	  $settings['#data_colors'][] = chart_unique_color('test_f');
-
-  
+//	  $settings['#mixed_axis_labels'][CHART_AXIS_Y_RIGHT][1][] = chart_mixed_axis_label(t('Clients'));
+//	  $settings['#mixed_axis_labels'][CHART_AXIS_X_TOP][2][] = chart_mixed_axis_label(t('Projects'));
 
   // Get workflow states
   $workflows = workflow_get_workflow_states_by_type('project');
-  
   // Delete creation workflow, not needed
 	unset($workflows[0]);
   
   foreach ($workflows as $key => $wf) {
     $settings['#legends'][] = $wf->state;
+    $settings['#data_colors'][] = chart_unique_color($wf->state, 'workflow');
   }
 	// Get clients list
+	$num_projects_per_client = array();
   $clients = taxonomy_get_tree(3);
   foreach ($clients as $key => $cl) {
 //  	$settings['#labels'][] = $cl->name;
   	$settings['#labels'][] = $cl->tid;
-  	
+  	$num_projects_per_client[] = count(taxonomy_select_nodes($cl->tid, FALSE, FALSE, array()));
   }
   
   // Fill chart data
@@ -145,6 +170,14 @@ function projects_reports_clients_graph() {
 	    }
     $settings['#data'][] = $row;
   }
+  
+  // Add Y max value
+//  $settings['#mixed_axis_labels'][CHART_AXIS_Y_LEFT][0][] = chart_mixed_axis_range_label(0, max($num_projects_per_client)*2);
+  
+  $settings['#adjust_resolution'] = array(
+    '#adjust' => TRUE,
+    '#max' => max($num_projects_per_client)+1,
+  );
   
   return theme('chart', array('chart' => $settings));
 }
@@ -229,149 +262,6 @@ function projects_reports_clients_table() {
 }
 
 
-
-/**
- * Process requests for 'reports/clients' path.
- */
-/*
-function _v200_projects_reports_clients_page() {
-  // Get clients list
-  $clients = taxonomy_get_tree(3);
-  
-  // Get workflow states
-  $workflows = workflow_get_workflow_states_by_type('project');
-  
-  // Unset creation state
-  unset($workflows[0]);
-
-  // Prepare table header
-  $header = array();
-
-  // First header item is static. It will contain the status column
-  $header[] = t('status');  
-  
-  // Add a header entry foreach client
-  foreach ($clients as $client) {
-    // Add client to the header list
-    $header[] = $client->name;
-  }
-  
-  // Last header item is static. It will contain the sum of each row, the status total projects
-  $header[] = array(
-     'data' => t('total'),
-     'class' => 'highlight'
-    );
-    
-  // Initialize table data.  
-  $rows = array();
-  
-  // Prepare content data 
-  // Each row will be a workflow status
-  foreach ($workflows as $key => $wf) {
-  	$row = array();
-  	// Initialize total project cont for workflow status
-  	$total_project_cont = 0;
-  	
-  	// The first item for each row will be the workflow status label
-  	$row[] = $wf->state;
-  	
-  	// Foreach client, we check the number of projects for the current state and add them to the row array
-	  foreach ($clients as $client) {
-	  	// We init the project cont
-	  	$nodes_related_pro = 0;
-	  	// Get all project from client $client with the status $wf->sid
-	  	$nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
-	  	//Store them in the row array
-	  	$row[] = count($nodes_related_pro);
-	  	// We sum the project cont to the total project cont for current workflow status
-	  	$total_project_cont += count($nodes_related_pro);
-	  }
-	  // The last item of the row will be the sum of all project of the current state
-	  $row[] = array(
-	   'data' => $total_project_cont,
-	   'class' => 'highlight'
-	  );
-	  // Add row to the total rows array
-	  $rows[] = $row;
-  }
-  
-  // Prepare table to theme it
-  $variables = array(
-    'header' => $header,
-    'rows' => $rows,
-    'attributes' => array(),
-    'caption' => '',
-    'colgroups' => array(),
-    'sticky' => '',
-    'empty' => t('No projects found'),
-  );
-  
-  // Return themed table
-  return theme_table($variables);
-}
-*/
-
-/**
- * Process requests for 'reports/clients' path.
- */
-/*
-function _v100_projects_reports_clients_page() {
-  // Get clients list
-  $clients = taxonomy_get_tree(3);
-  
-  // Get workflow states
-  $workflows = workflow_get_workflow_states_by_type('project');
-
-  // Prepare table header
-  $header = array();
-  $header[] = t('status');  
-  foreach ($clients as $client) {
-    // Add client to the header list
-    $header[] = $client->name;
-  }
-  $header[] = t('total');
-  // Prepare table data.  
-  $rows = array();
-  
-  // Foreach client, Get all projects and put them in the correct row
-  foreach ($workflows as $key => $wf) {
-  	$row = array();
-  	$total_project_cont = 0;
-  	// Add row label
-  	$row[] = $wf->state;
-	  foreach ($clients as $client) {
-	  	$project_cont = 0;
-	  	// Get all related projects
-	  	$nodes_related = taxonomy_select_nodes($client->tid, false, false, array());
-	  	// Foreach project, check the workflow state, and if it's the current we are looking for, update cont.
-	  	foreach ($nodes_related as $project) {
-//	  		dsm($node->title);
-//	  		dsm(workflow_get_workflow_node_by_nid($project));
-	  		if ($wf->sid == workflow_get_workflow_node_by_nid($project)->sid) {
-	  			$project_cont++;
-	  		}
-	  	}
-	  	$row[] = $project_cont;
-	  	// Add 
-	  }
-	  $rows[] = $row;
-	  // Add total sum
-  }
-  
-  $variables = array(
-    'header' => $header,
-    'rows' => $rows,
-    'attributes' => array(),
-    'caption' => '',
-    'colgroups' => array(),
-    'sticky' => '',
-    'empty' => t('No projects found'),
-  );
-  
-  return theme_table($variables);
-}
-*/
-
 /**
  * Return nodes attached to a term with current state attached to the workflow state across all field instances .
  *
@@ -432,4 +322,18 @@ function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $l
     $query->addField($table_alias, $name);
   }
   return $query->execute()->fetchCol();
+}
+
+
+function projects_reports_chart_color_schemes() {
+  return array(
+    'workflow' => array(
+      'start' => 'FA5858',
+      'intercomms' => 'FAAC58',
+      'on going' => 'F4FA58',
+      'blocked' => 'ACFA58',
+	    'delayed' => '58FA58',
+	    'completed' => '5882FA',
+    ),
+  );
 }
