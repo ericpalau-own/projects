@@ -118,23 +118,32 @@ function projects_reports_clients_graph2() {
   $workflows = array_reverse($workflows);
   // Get clients list
   $clients = taxonomy_get_tree(3);
-  
+
+  // Prepare current and previous months to add them to the label
+  $current_month = date('M',time());
+  $prev_month = date('M', strtotime("last month"));
   
   // Fill chart data
   foreach ($workflows as $key => $wf) {
     $row = array();
+    $label = '';
+    // Prepare label
+    $label = (($wf->state == 'completed') ? $wf->state .' in '.$prev_month : $wf->state .' in '.$current_month);
     $chart[$wf->state] = array(
 	   '#type' => 'chart_data',
-	   '#title' => t($wf->state),
+	   '#title' => $label,
     );
+    // Prepare each row data
     foreach ($clients as $client) {
       $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
       //Store them in the row array
       $row[] = count($nodes_related_pro);
     }
+    // Add row array to the chart
     $chart[$wf->state]['#data'] = $row;
   }
   
+  // Prepare X labels
   $xaxis = array();
   foreach ($clients as $key => $cl) {
     $xaxis[] = $cl->name;
@@ -227,7 +236,7 @@ function projects_reports_clients_table() {
   // Add a header entry foreach client
   foreach ($clients as $client) {
     // Add client to the header list
-    $header[] = $client->name . ' (' . $client->tid . ')';
+    $header[] = $client->name;
   }
   
   // Last header item is static. It will contain the sum of each row, the status total projects
