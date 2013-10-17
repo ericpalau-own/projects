@@ -58,8 +58,10 @@ function projects_reports_clients_page() {
 	// Add example grapsh
 //	$output .= projects_reports_clients_example_graph();
 	
-	// Add grapsh
-	$output .= projects_reports_clients_graph();
+	// Add google chart
+//	$output .= projects_reports_clients_graph();
+
+	// Add highcharts graph
 	$output .= projects_reports_clients_graph2();
 	
 	return $output;
@@ -95,35 +97,57 @@ function projects_reports_clients_example_graph() {
 	  return theme('chart', array('chart' => $chart));
 }
 
-
+/**
+ * Highcharts graph
+ */
 function projects_reports_clients_graph2() {
   $chart = array(
     '#type' => 'chart',
     '#chart_type' => 'column',
-    '#title' => t('Column simple'),
-    '#chart_library' => 'google',
+    '#title' => t('Client reports graph'),
+    '#chart_library' => 'highcharts',
+    '#stacking' => TRUE,
+    '#height' => '500',
   );
-  $chart['male'] = array(
-    '#type' => 'chart_data',
-    '#title' => t('Male'),
-    '#data' => array(10, 20, 30),
-    '#suffix' => 'lbs',
-  );
-  $chart['female'] = array(
-    '#type' => 'chart_data',
-    '#title' => t('Female'),
-    '#data' => array(12, 22, 32),
-    '#suffix' => 'lbs',
-  );
+  
+  // Get workflow states
+  $workflows = workflow_get_workflow_states_by_type('project');
+  // Delete creation workflow, not needed
+  unset($workflows[0]);
+  //Reverse the array to put in the correct order
+  $workflows = array_reverse($workflows);
+  // Get clients list
+  $clients = taxonomy_get_tree(3);
+  
+  
+  // Fill chart data
+  foreach ($workflows as $key => $wf) {
+    $row = array();
+    $chart[$wf->state] = array(
+	   '#type' => 'chart_data',
+	   '#title' => t($wf->state),
+    );
+    foreach ($clients as $client) {
+      $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+      //Store them in the row array
+      $row[] = count($nodes_related_pro);
+    }
+    $chart[$wf->state]['#data'] = $row;
+  }
+  
+  $xaxis = array();
+  foreach ($clients as $key => $cl) {
+    $xaxis[] = $cl->name;
+  }
   $chart['xaxis'] = array(
     '#type' => 'chart_xaxis',
-    '#labels' => array('Jan', 'Feb', 'Mar'),
+    '#labels' => $xaxis,
+    '#labels_rotation' => 60
   );
 
   return drupal_render($chart);
   
 }
-
 
 /**
  * Process requests for 'reports/clients' path.
@@ -136,11 +160,10 @@ function projects_reports_clients_graph() {
     '#type' => CHART_TYPE_BAR_V,
     '#size' => chart_size(900, 300),
     '#bar_size' => chart_bar_size(30, 15), 
-//    '#grid_lines' => chart_grid_lines(10, 30),
-    );
+  );
     
-//	  $settings['#mixed_axis_labels'][CHART_AXIS_Y_RIGHT][1][] = chart_mixed_axis_label(t('Clients'));
-//	  $settings['#mixed_axis_labels'][CHART_AXIS_X_TOP][2][] = chart_mixed_axis_label(t('Projects'));
+	$settings['#mixed_axis_labels'][CHART_AXIS_Y_RIGHT][1][] = chart_mixed_axis_label(t('Clients'));
+	$settings['#mixed_axis_labels'][CHART_AXIS_X_TOP][2][] = chart_mixed_axis_label(t('Projects'));
 
   // Get workflow states
   $workflows = workflow_get_workflow_states_by_type('project');
