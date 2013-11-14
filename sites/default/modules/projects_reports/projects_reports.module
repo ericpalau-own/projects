@@ -77,8 +77,9 @@ function projects_reports_clients_graph() {
   
   // Get workflow states
   $workflows = workflow_get_workflow_states_by_type('project');
-  // Delete creation workflow, not needed
+  // Delete creation workflow and to do workflow, not needed
   unset($workflows[0]);
+  unset($workflows[1]);
   //Reverse the array to put in the correct order
   $workflows = array_reverse($workflows);
   // Get clients list
@@ -134,8 +135,9 @@ function projects_reports_clients_table() {
   // Get workflow states
   $workflows = workflow_get_workflow_states_by_type('project');
   
-  // Unset creation state
+  // Unset creation state and to do state
   unset($workflows[0]);
+  unset($workflows[1]);
 
   // Prepare table header
   $header = array();
