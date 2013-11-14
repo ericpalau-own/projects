@@ -68,7 +68,7 @@ function projects_reports_clients_page() {
 function projects_reports_clients_graph() {
   $chart = array(
     '#type' => 'chart',
-    '#chart_type' => 'column',
+    '#chart_type' => 'bar',
     '#title' => t('Client reports graph'),
     '#chart_library' => 'highcharts',
     '#stacking' => TRUE,
