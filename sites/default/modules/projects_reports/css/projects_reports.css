@@ -10,3 +10,13 @@ td.highlight {
 	text-transform: capitalize;
 	text-align: center;
 }
+#edit-event-calendar-date {
+	clear:left;
+	margin-top: 20px;
+	display: block;
+	overflow: hidden;
+}
+#edit-field-event-calendar-type-und div{
+	float:left;
+	margin-right: 25px;
+}
