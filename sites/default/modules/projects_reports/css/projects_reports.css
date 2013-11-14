@@ -4,3 +4,9 @@
 td.highlight {
 	background: yellow;
 }
+.view-clone-of-taxonomy-term table caption {
+	font-weight: bold;
+	font-size: 1.5em;
+	text-transform: capitalize;
+	text-align: center;
+}
