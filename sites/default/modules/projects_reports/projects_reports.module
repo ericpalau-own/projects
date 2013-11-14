@@ -20,6 +20,12 @@ function projects_reports_menu() {
     'type' => MENU_NORMAL_ITEM,
     'menu_name' => 'main-menu'
   );
+  $items['reports/clients/csv'] = array(
+    'title' => 'Client reports',
+    'page callback' => 'projects_reports_clients_csv',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_CALLBACK,
+  );
   return $items;
 }
 
@@ -124,12 +130,15 @@ function projects_reports_clients_graph() {
   
 }
 
-
 /**
- * Process requests for 'reports/clients' path.
+ * Get tabla data
+ * @param csv boolean Return data to be applied to the csv
+ * @return Array
+ *    'header' => table header 
+ *    'rows' => all rows from the table
  */
-function projects_reports_clients_table() {
-  // Get clients list
+function projects_reports_get_table_data($csv = FALSE){
+	// Get clients list
   $clients = taxonomy_get_tree(3);
   
   // Get workflow states
@@ -152,10 +161,15 @@ function projects_reports_clients_table() {
   }
   
   // Last header item is static. It will contain the sum of each row, the status total projects
-  $header[] = array(
-     'data' => t('total'),
-     'class' => 'highlight'
+  if ($csv) {
+	  $header[] = t('total');
+  } 
+  else {
+	  $header[] = array(
+      'data' => t('total'),
+      'class' => 'highlight'
     );
+  }
     
   // Initialize table data.  
   $rows = array();
@@ -163,37 +177,53 @@ function projects_reports_clients_table() {
   // Prepare content data 
   // Each row will be a workflow status
   foreach ($workflows as $key => $wf) {
-  	$row = array();
-  	// Initialize total project cont for workflow status
-  	$total_project_cont = 0;
-  	
-  	// The first item for each row will be the workflow status label
-  	$row[] = $wf->state;
-  	
-  	// Foreach client, we check the number of projects for the current state and add them to the row array
-	  foreach ($clients as $client) {
-	  	// We init the project cont
-	  	$nodes_related_pro = 0;
-	  	// Get all project from client $client with the status $wf->sid
-	  	$nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
-	  	//Store them in the row array
-	  	$row[] = count($nodes_related_pro);
-	  	// We sum the project cont to the total project cont for current workflow status
-	  	$total_project_cont += count($nodes_related_pro);
-	  }
-	  // The last item of the row will be the sum of all project of the current state
-	  $row[] = array(
-	   'data' => $total_project_cont,
-	   'class' => 'highlight'
-	  );
-	  // Add row to the total rows array
-	  $rows[] = $row;
+    $row = array();
+    // Initialize total project cont for workflow status
+    $total_project_cont = 0;
+    
+    // The first item for each row will be the workflow status label
+    $row[] = $wf->state;
+    
+    // Foreach client, we check the number of projects for the current state and add them to the row array
+    foreach ($clients as $client) {
+      // We init the project cont
+      $nodes_related_pro = 0;
+      // Get all project from client $client with the status $wf->sid
+      $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+      //Store them in the row array
+      $row[] = count($nodes_related_pro);
+      // We sum the project cont to the total project cont for current workflow status
+      $total_project_cont += count($nodes_related_pro);
+    }
+    
+    if ($csv) {
+	    // The last item of the row will be the sum of all project of the current state
+	    $row[] = $total_project_cont;
+    } 
+    else {
+	    $row[] = array(
+        'data' => $total_project_cont,
+        'class' => 'highlight'
+	    );
+    }
+    // Add row to the total rows array
+    $rows[] = $row;
   }
   
+	return array('header' => $header, 'rows' => $rows);
+}
+
+/**
+ * Process requests for 'reports/clients' path.
+ */
+function projects_reports_clients_table() {
+	// Get table data
+	$table_data = projects_reports_get_table_data();
+	
   // Prepare table to theme it
   $variables = array(
-    'header' => $header,
-    'rows' => $rows,
+    'header' => $table_data['header'],
+    'rows' => $table_data['rows'],
     'attributes' => array(),
     'caption' => '',
     'colgroups' => array(),
@@ -201,8 +231,11 @@ function projects_reports_clients_table() {
     'empty' => t('No projects found'),
   );
   
+  // Prepare link to be exported
+  $csv_link = l('Download as csv', 'reports/clients/csv');
+  
   // Return themed table
-  return theme_table($variables);
+  return $csv_link . theme_table($variables);
 }
 
 
@@ -269,15 +302,36 @@ function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $l
 }
 
 
-function projects_reports_chart_color_schemes() {
-  return array(
-    'workflow' => array(
-      'start' => 'FA5858',
-      'intercomms' => 'FAAC58',
-      'on going' => 'F4FA58',
-      'blocked' => 'ACFA58',
-	    'delayed' => '58FA58',
-	    'completed' => '5882FA',
-    ),
-  );
+/**
+ * Exports a CSV.
+ *
+ * @param array $variables
+ *   An associative array of data containing "header" and "rows" keys.
+ *   This is ready to be passed to theme_table(). See api.drupal.org/node/22950.
+ *   Also contains the key "filename" specifying the filename.
+ */
+function projects_reports_clients_csv() {
+	// Get table data
+	$variables = projects_reports_get_table_data(TRUE);
+	
+	// Add filename
+  $variables['filename'] = 'projects.csv';
+  
+	// Prepare csv headers
+  drupal_add_http_header('Content-Type', 'text/csv; utf-8');
+  drupal_add_http_header('Content-Disposition', 'attachment; filename=' . $variables['filename']);
+
+  $output = '';
+  $keys = array();
+  foreach ($variables['header'] as $key => $value) {
+    $keys[] = $value;
+  }
+  if ($keys) {
+    $output .= implode(",", $keys) . "\r\n";
+  }
+  foreach ($variables['rows'] as $value) {
+    $output .= implode(",", $value) . "\r\n";
+  }
+  print $output;
+  exit;
 }
