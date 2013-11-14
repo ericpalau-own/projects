@@ -55,52 +55,17 @@ function projects_reports_clients_page() {
 	// Add table
 	$output .= projects_reports_clients_table();
 
-	// Add example grapsh
-//	$output .= projects_reports_clients_example_graph();
-	
-	// Add google chart
-//	$output .= projects_reports_clients_graph();
-
 	// Add highcharts graph
-	$output .= projects_reports_clients_graph2();
+	$output .= projects_reports_clients_graph();
 	
 	return $output;
 }
 
-/**
- * 
- * Add example graph
- */
-function projects_reports_clients_example_graph() {
-	$chart = array(
-      '#chart_id' => 'test_chart',
-      '#title' => chart_title(t('Bar Chart'), '0000ee', 15),
-      '#type' => CHART_TYPE_BAR_V,
-      '#size' => chart_size(400, 200),
-      '#grid_lines' => chart_grid_lines(10, 5),
-      '#bar_size' => chart_bar_size(15, 5), 
-    );
-	
-	  $chart['#data'][] = array(30, 20, 10, 40);
-	  $chart['#data'][] = array(30, 20, 10, 40);
-	  $chart['#data'][] = array(30, 20, 10, 40);
-
-	  $chart['#labels'][] = 'a';
-	  $chart['#labels'][] = 'b';
-	  $chart['#labels'][] = 'c';
-	  $chart['#labels'][] = 'd';
-	  
-	  $chart['#data_colors'][] = chart_unique_color('test_a');
-	  $chart['#data_colors'][] = chart_unique_color('test_b');
-	  $chart['#data_colors'][] = chart_unique_color('test_c');
-	  
-	  return theme('chart', array('chart' => $chart));
-}
 
 /**
  * Highcharts graph
  */
-function projects_reports_clients_graph2() {
+function projects_reports_clients_graph() {
   $chart = array(
     '#type' => 'chart',
     '#chart_type' => 'column',
@@ -158,61 +123,6 @@ function projects_reports_clients_graph2() {
   
 }
 
-/**
- * Process requests for 'reports/clients' path.
- */
-
-function projects_reports_clients_graph() {
-	$settings = array(
-    '#chart_id' => 'test_chart2',
-    '#title' => chart_title(t('Monthly Client report graph'), '000000', 30),
-    '#type' => CHART_TYPE_BAR_V,
-    '#size' => chart_size(900, 300),
-    '#bar_size' => chart_bar_size(30, 15), 
-  );
-    
-	$settings['#mixed_axis_labels'][CHART_AXIS_Y_RIGHT][1][] = chart_mixed_axis_label(t('Clients'));
-	$settings['#mixed_axis_labels'][CHART_AXIS_X_TOP][2][] = chart_mixed_axis_label(t('Projects'));
-
-  // Get workflow states
-  $workflows = workflow_get_workflow_states_by_type('project');
-  // Delete creation workflow, not needed
-	unset($workflows[0]);
-  
-  foreach ($workflows as $key => $wf) {
-    $settings['#legends'][] = $wf->state;
-    $settings['#data_colors'][] = chart_unique_color($wf->state, 'workflow');
-  }
-	// Get clients list
-	$num_projects_per_client = array();
-  $clients = taxonomy_get_tree(3);
-  foreach ($clients as $key => $cl) {
-//  	$settings['#labels'][] = $cl->name;
-  	$settings['#labels'][] = $cl->tid;
-  	$num_projects_per_client[] = count(taxonomy_select_nodes($cl->tid, FALSE, FALSE, array()));
-  }
-  
-  // Fill chart data
-    foreach ($workflows as $key => $wf) {
-      $row = array();
-      foreach ($clients as $client) {
-	      $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
-	      //Store them in the row array
-	      $row[] = count($nodes_related_pro);
-	    }
-    $settings['#data'][] = $row;
-  }
-  
-  // Add Y max value
-//  $settings['#mixed_axis_labels'][CHART_AXIS_Y_LEFT][0][] = chart_mixed_axis_range_label(0, max($num_projects_per_client)*2);
-  
-  $settings['#adjust_resolution'] = array(
-    '#adjust' => TRUE,
-    '#max' => max($num_projects_per_client)+1,
-  );
-  
-  return theme('chart', array('chart' => $settings));
-}
 
 /**
  * Process requests for 'reports/clients' path.
