@@ -4,6 +4,13 @@
 td.highlight {
 	background: yellow;
 }
+.view-clone-of-taxonomy-term .view-grouping-header{
+	font-weight: bold;
+	font-size: 1.8em;
+	text-transform: capitalize;
+	text-align: center;
+	text-decoration: underline;
+}
 .view-clone-of-taxonomy-term table caption {
 	font-weight: bold;
 	font-size: 1.5em;
