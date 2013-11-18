@@ -37,6 +37,14 @@ function projects_reports_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 5
   );
+  $items['reports/clients/full_reports'] = array(
+    'title' => 'Dynamic reports',
+    'file' => 'includes/projects_reports.dynamic_input.inc',
+    'page callback' => 'projects_reports_clients_page_3',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 7
+  );
   $items['reports/clients/projects_csv'] = array(
     'title' => 'Client reports',
     'page callback' => 'projects_reports_clients_csv',
