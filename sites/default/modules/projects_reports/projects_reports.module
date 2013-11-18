@@ -85,6 +85,9 @@ function projects_reports_get_table_data($ct, $tax, $csv = FALSE){
   // Get clients list
   $clients = taxonomy_get_tree($tax);
   
+  //Remove clients without nodes
+  $clients = projects_reports_unset_empty_taxonomies($clients, $ct);
+  
   // Get workflow states
   $workflows = workflow_get_workflow_states_by_type($ct);
   
@@ -174,6 +177,8 @@ function projects_reports_get_graph_data($ct, $tax) {
   $workflows = array_reverse($workflows);
   // Get clients list
   $clients = taxonomy_get_tree($tax);
+  //Remove clients without nodes
+  $clients = projects_reports_unset_empty_taxonomies($clients, $ct);
 
   // Prepare current and previous months to add them to the label
   $current_month = date('M',time());
@@ -211,6 +216,23 @@ function projects_reports_get_graph_data($ct, $tax) {
   );
   
   return $chart;
+}
+
+/**
+ * Function to remove all taxonomy terms that doesn't contain nodes 
+ * @param intthe vocabulary id $voc
+ * @param string $ct the content type
+ * 
+ * @return array the modified list of terms
+ */
+function projects_reports_unset_empty_taxonomies($voc, $ct) {
+  foreach ($voc as $key => $client) {
+    $cl_nodes = projects_reports_taxonomy_select_nodes_by_ct($client->tid, false, false, array(), $ct);
+    if (is_array($cl_nodes) && empty($cl_nodes)) {
+      unset($voc[$key]);
+    }
+  }
+  return $voc;
 }
 
 /**
@@ -262,6 +284,68 @@ function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $l
   $query->join('workflow_node', 'wn', 't.nid=wn.nid');
   $query->addField('wn', 'sid');
   $query->condition('sid', $sid);
+  // HACK END
+  $query->addField('t', 'nid');
+  $query->addField('t', 'tid');
+  foreach ($order as $field => $direction) {
+    $query->orderBy($field, $direction);
+    // ORDER BY fields need to be loaded too, assume they are in the form
+    // table_alias.name
+    list($table_alias, $name) = explode('.', $field);
+    $query->addField($table_alias, $name);
+  }
+  return $query->execute()->fetchCol();
+}
+
+/**
+ * Return nodes attached to a term with the specified content type across all field instances .
+ *
+ * This function requires taxonomy module to be maintaining its own tables,
+ * and will return an empty array if it is not. If using other field storage
+ * methods alternatives methods for listing terms will need to be used.
+ *
+ * @param $tid
+ *   The term ID.
+ * @param $pager
+ *   Boolean to indicate whether a pager should be used.
+ * @param $limit
+ *   Integer. The maximum number of nodes to find.
+ *   Set to FALSE for no limit.
+ * @param $order
+ *   An array of fields and directions.
+ * @param $ct
+ *   The content type
+ *
+ * @return
+ *   An array of nids matching the query.
+ */
+function projects_reports_taxonomy_select_nodes_by_ct($tid, $pager = TRUE, $limit = FALSE, $order = array('t.sticky' => 'DESC', 't.created' => 'DESC'), $ct) {
+  if (!variable_get('taxonomy_maintain_index_table', TRUE)) {
+    return array();
+  }
+  $query = db_select('taxonomy_index', 't');
+  $query->addTag('node_access');
+  $query->condition('tid', $tid);
+  if ($pager) {
+    $count_query = clone $query;
+    $count_query->addExpression('COUNT(t.nid)');
+
+    $query = $query->extend('PagerDefault');
+    if ($limit !== FALSE) {
+      $query = $query->limit($limit);
+    }
+    $query->setCountQuery($count_query);
+  }
+  else {
+    if ($limit !== FALSE) {
+      $query->range(0, $limit);
+    }
+  }
+  // HACK INIT
+  // We join the node.type here (content type), to get only the needed nodes
+  $query->join('node', 'n', 't.nid=n.nid');
+  $query->addField('n', 'type');
+  $query->condition('type', $ct);
   // HACK END
   $query->addField('t', 'nid');
   $query->addField('t', 'tid');

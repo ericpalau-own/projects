@@ -25,7 +25,7 @@ function projects_reports_dynamic_input_form($form, &$form_state) {
 	
 	// Content type dropdown list
   $form['input_form']['ct'] = array(
-    '#title' => t('Province'),
+    '#title' => t('Content type'),
     '#type' => 'select',
     '#options' => _load_ct_types(),
     '#ajax' => array(
@@ -42,7 +42,7 @@ function projects_reports_dynamic_input_form($form, &$form_state) {
   );
 
   // Options for city dropdown list
-  $options = array('- Select city -');
+  $options = array('- Select type -');
   if (isset($form_state['values']['ct'])) {
     // Pre-populate options for city dropdown list if province id is set
     $options = _load_ct_tax_types($form_state['values']['ct']);
