@@ -16,12 +16,29 @@ function projects_reports_clients_page_3() {
  */
 function projects_reports_dynamic_input_form($form, &$form_state) {
 	
+	// Check if the graph is generated
+	$is_graph = (isset($form_state['storage']['graph']));
+	
 	$form['input_form'] = array(
     '#type' => 'fieldset',
     '#title' => t('Graph input data'),
     '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
+    '#collapsed' => (($is_graph) ? TRUE : FALSE),
 	);
+	
+	if ($is_graph) {
+		$form['ct_markup'] =array(
+		  '#type' => 'item',
+      '#title' => t('Content type'),
+      '#markup' => $form_state['values']['ct'],
+		);
+		$voc = taxonomy_vocabulary_load($form_state['values']['tax']);
+		$form['tax_markup'] =array(
+		  '#type' => 'item',
+      '#title' => t('Taxonomy'),
+      '#markup' => $voc->name,
+		);
+	}
 	
 	// Content type dropdown list
   $form['input_form']['ct'] = array(
@@ -71,7 +88,7 @@ function projects_reports_dynamic_input_form($form, &$form_state) {
     '#value' => t('Build graph'),
   );
   
-  if (isset($form_state['storage']['graph'])) {
+  if ($is_graph) {
   	$form['graph'] = $form_state['storage']['graph'];
   }
   
@@ -90,7 +107,6 @@ function reports_ajax_dropdown_taxonomy($form, $form_state) {
  * Function for populating province
  */
 function _load_ct_types() {
-
     $types['any'] = '- Select type -';
     $types['project'] = 'Projects';
     $types['engagement'] = 'Commercial Engagements';
@@ -103,15 +119,17 @@ function _load_ct_types() {
  */
 function _load_ct_tax_types($ct_id) {
   $tax = array('- Select tax -');
-
   switch ($ct_id) {
   	case 'project':
 		  $tax[3] = 'Clients';
 		  $tax[2] = 'Team';
+		  $tax[1] = 'Tags';
 		  break;
   	case 'engagement':
 		  $tax[3] = 'Clients';
-		  $tax[7] = 'engagement type';
+		  $tax[7] = 'Engagement type';
+		  $tax[9] = 'Countries';
+		  $tax[1] = 'Tags';
 		  break;
   		
   }
