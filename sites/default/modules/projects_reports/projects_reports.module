@@ -166,8 +166,10 @@ function projects_reports_get_table_data($ct, $tax, $csv = FALSE){
  * @param $tax int Taxonomy id
  * @return Array the chart that need to be rendered
  */
-function projects_reports_get_graph_data($ct, $tax) {
+function projects_reports_get_graph_data($ct, $tax, $options = array()) {
 	$chart = array();
+	$extra_fields = (!empty($options) && is_array($options));
+	
 	// Get workflow states
   $workflows = workflow_get_workflow_states_by_type($ct);
   // Delete creation workflow and to do workflow, not needed
@@ -183,6 +185,11 @@ function projects_reports_get_graph_data($ct, $tax) {
   // Prepare current and previous months to add them to the label
   $current_month = date('M',time());
   $prev_month = date('M', strtotime("last month"));
+  // Check if date options are incoming to override labels with dates months
+  if ($extra_fields) {
+	  $current_month = date('M',$options['start_date']);
+	  $prev_month = date('M',$options['end_date']);
+  }  
   
   // Fill chart data
   foreach ($workflows as $key => $wf) {
@@ -190,15 +197,23 @@ function projects_reports_get_graph_data($ct, $tax) {
     $label = '';
     // Prepare label
     $label = (($wf->state == 'completed') ? $wf->state .' in '.$prev_month : $wf->state .' in '.$current_month);
+    if ($extra_fields) {
+	    $label = $wf->state ;
+    }
     $chart[$wf->state] = array(
      '#type' => 'chart_data',
      '#title' => $label,
     );
     // Prepare each row data
     foreach ($clients as $client) {
+    	// Get nodes related to the taxonomy term and the state
       $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
-      //Store them in the row array
-      $row[] = count($nodes_related_pro);
+      if ($extra_fields) {
+	      // Get only nodes regarding options 
+	      $nodes_related_pro = projects_reports_apply_extra_options($nodes_related_pro, $options);
+      }
+      // add value to the row
+	    $row[] = count($nodes_related_pro);
     }
     // Add row array to the chart
     $chart[$wf->state]['#data'] = $row;
@@ -214,8 +229,59 @@ function projects_reports_get_graph_data($ct, $tax) {
     '#labels' => $xaxis,
     '#labels_rotation' => 60
   );
-  
   return $chart;
+}
+
+/**
+ * Aply extra validations to the nodes that will be used in the graph 
+ * @param  the nodes to be checked $nodes
+ * @param the optiosn to apply $options
+ * @return array the nodes array modified
+ */
+function projects_reports_apply_extra_options($nodes, $options) {
+	$init_states = array(8, 10);
+	$fin_states = array(3, 14);
+	// check if start and end date is set to apply the filter
+	if (isset($options['start_date']) && isset($options['end_date'])) {
+	  foreach($nodes as $key => $nid) {
+	  	// Get states between the dates
+	  	$s_nodes = workflow_get_workflow_node_history_by_nid_and_date($nid, $options['start_date'], $options['end_date']);
+	  	// Check if the states are to do or completed / deployment
+	  	$in_range = FALSE;
+	  	foreach ($s_nodes as $st) {
+	  		if (in_array($st->old_sid, $init_states) || in_array($st->sid, $fin_states)) {
+			  	$in_range = TRUE;
+	  		}
+	  	}
+	  	if (!$in_range) {
+	  		unset($nodes[$key]);
+	  	}
+	  }
+	}
+	// If data options are activated, we get all nodes that has any transition between the start and date 
+	return $nodes;
+}
+
+/**
+ * Get all recorded history for a node id between the dates passed.
+ *
+ * Since this may return a lot of data, a limit is included to allow for only one result.
+ */
+function workflow_get_workflow_node_history_by_nid_and_date($nid, $start_date, $end_date, $limit = NULL) {
+  if (empty($limit)) {
+    $limit = variable_get('workflow_states_per_page', 20);
+  }
+  $results = db_query_range('SELECT h.nid, h.old_sid, h.sid '
+    . 'FROM {workflow_node_history} h '
+    . 'LEFT JOIN {users} u ON h.uid = u.uid '
+    . 'WHERE nid = :nid AND (h.stamp >= :s_date OR h.stamp <= :e_date ) '
+    // The timestamp is only granular to the second; on a busy site, we need the id.
+    . 'ORDER BY h.stamp DESC, h.hid DESC ', 0, $limit,
+    array(':nid' => $nid, ':s_date' => $start_date, ':e_date' => $end_date));
+  if ($limit == 1) {
+    return $results->fetchObject();
+  }
+  return $results->fetchAll();
 }
 
 /**
@@ -258,12 +324,20 @@ function projects_reports_unset_empty_taxonomies($voc, $ct) {
  *   An array of nids matching the query.
  */
 function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $limit = FALSE, $order = array('t.sticky' => 'DESC', 't.created' => 'DESC'), $sid) {
+//	$stard_date = 1111111111;
+//	$end_date = 9999999999;
   if (!variable_get('taxonomy_maintain_index_table', TRUE)) {
     return array();
   }
   $query = db_select('taxonomy_index', 't');
+  $query->join('workflow_node', 'wn', 't.nid=wn.nid');
+  $query->condition('wn.sid', $sid);
+//  $query->join('workflow_node_history', 'wnh', 't.nid=wnh.nid');
+//  $query->condition('wnh.stamp', $stard_date, '>=');
+//  $query->condition('wnh.stamp', $end_date, '<=');
   $query->addTag('node_access');
-  $query->condition('tid', $tid);
+  $query->addField('t', 'nid');
+  $query->condition('t.tid', $tid);
   if ($pager) {
     $count_query = clone $query;
     $count_query->addExpression('COUNT(t.nid)');
@@ -281,12 +355,7 @@ function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $l
   }
   // HACK INIT
   // We join the workflow status here, to get only the needed nodes
-  $query->join('workflow_node', 'wn', 't.nid=wn.nid');
-  $query->addField('wn', 'sid');
-  $query->condition('sid', $sid);
-  // HACK END
-  $query->addField('t', 'nid');
-  $query->addField('t', 'tid');
+  // HACK END+
   foreach ($order as $field => $direction) {
     $query->orderBy($field, $direction);
     // ORDER BY fields need to be loaded too, assume they are in the form

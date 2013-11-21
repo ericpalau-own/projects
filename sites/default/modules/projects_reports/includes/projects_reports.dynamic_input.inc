@@ -140,11 +140,11 @@ function projects_reports_dynamic_input_form_submit($form, &$form_state) {
 	// Get needed values from the form to generate the graph
 	$project = $form_state['values']['ct'];
 	$tax = $form_state['values']['tax'];
-	$start_date = $form_state['values']['start_date'];
-	$end_date = $form_state['values']['end_date'];
-	
+	// Prepare start and date data
+	$start_date = strtotime($form_state['values']['start_date']['day'].'-'.$form_state['values']['start_date']['month'].'-'.$form_state['values']['start_date']['year']);
+	$end_date = strtotime($form_state['values']['end_date']['day'].'-'.$form_state['values']['end_date']['month'].'-'.$form_state['values']['end_date']['year']);
 	// Get graph data
-	$graph = projects_reports_get_graph_data($project, $tax);
+	$graph = projects_reports_get_graph_data($project, $tax, array('start_date' => $start_date, 'end_date' => $end_date));
 	
 	// static data for chart
 	$chart = array(
