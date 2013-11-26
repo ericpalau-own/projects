@@ -39,12 +39,27 @@ function projects_reports_dynamic_input_form($form, &$form_state) {
       '#title' => t('Taxonomy'),
       '#markup' => $voc->name,
 		);
+		if (!empty($form_state['values']['start_date'])) {
+			$form['start_date_markup'] =array(
+			  '#type' => 'item',
+	      '#title' => t('Start date'),
+	      '#markup' => $form_state['values']['start_date'],
+			);
+		}
+		if (!empty($form_state['values']['end_date'])) {
+			$form['end_date_markup'] =array(
+			  '#type' => 'item',
+	      '#title' => t('End date'),
+	      '#markup' => $form_state['values']['end_date'],
+			);
+		}
 	}
 	
 	// Content type dropdown list
   $form['input_form']['ct'] = array(
     '#title' => t('Content type'),
     '#type' => 'select',
+    '#required' => TRUE,
     '#options' => _load_ct_types(),
     '#ajax' => array(
       'event'=>'change',
@@ -60,7 +75,7 @@ function projects_reports_dynamic_input_form($form, &$form_state) {
   );
 
   // Options for city dropdown list
-  $options = array('- Select type -');
+  $options = array();
   if (isset($form_state['values']['ct'])) {
     // Pre-populate options for city dropdown list if province id is set
     $options = _load_ct_tax_types($form_state['values']['ct']);
@@ -70,18 +85,23 @@ function projects_reports_dynamic_input_form($form, &$form_state) {
   $form['input_form']['wrapper']['tax'] = array(
     '#title' => t('Taxonomy'),
     '#type' => 'select',
+    '#required' => TRUE,
     '#options' => $options,
   );
-	
+	$dateformat = 'Y-m-d';
 	$form['input_form']['start_date'] = array(
 	 '#title' => t('Start date'),
-	 '#type' => 'date',
-	 '#description' => t('This start date means when the project / engagement has been passed from "to do" status to the first status (start in project type, in discussion in engagement type).'),
+	 '#type' => 'date_popup',
+	 '#date_format' => $dateformat,
+   '#date_year_range' => '-3:+3',
+//	 '#description' => t('This start date means when the project / engagement has been passed from "to do" status to the first status (start in project type, in discussion in engagement type).'),
 	);
 	$form['input_form']['end_date'] = array(
 	 '#title' => t('End date'),
-	 '#type' => 'date',
-	 '#description' => t('This end date means when the project / engagement has been passed the completed / deployment status.'),
+	 '#type' => 'date_popup',
+	 '#date_format' => $dateformat,
+   '#date_year_range' => '-3:+3',
+//	 '#description' => t('This end date means when the project / engagement has been passed the completed / deployment status.'),
 	);
 	
 	$form['input_form']['submit'] = array(
@@ -108,7 +128,6 @@ function reports_ajax_dropdown_taxonomy($form, $form_state) {
  * Function for populating province
  */
 function _load_ct_types() {
-    $types['any'] = '- Select type -';
     $types['project'] = 'Projects';
     $types['engagement'] = 'Commercial Engagements';
 
@@ -119,7 +138,7 @@ function _load_ct_types() {
  * Function for populating city
  */
 function _load_ct_tax_types($ct_id) {
-  $tax = array('- Select tax -');
+  $tax = array();
   switch ($ct_id) {
   	case 'project':
 		  $tax[3] = 'Clients';
@@ -137,15 +156,32 @@ function _load_ct_tax_types($ct_id) {
   return $tax;
 }
 
+function projects_reports_dynamic_input_form_validate($form, &$form_state) {
+	$start_date = $form_state['values']['start_date'];
+	$end_date = $form_state['values']['end_date'];
+
+	// Check if start date and end date are set together or only one of them.
+	// If only start date or end date is set, return an error saying both are needed.
+	if ((!empty($start_date) && empty($end_date)) || (empty($start_date) && !empty($end_date))) {
+		form_set_error('start_date', t('Please introduce both start and end date to process the graph with correct dates.'));
+		form_set_error('end_date', '');
+	}
+	
+	// Check if the end date is greater or equal than the start date. If not, raise an error
+	if (!empty($start_date) && !empty($end_date) && $end_date <= $start_date) {
+		form_set_error('end_date', t('End date must be greather or equal than start date. Please introduce correct dates to process the graph.'));
+	}
+}
+
 function projects_reports_dynamic_input_form_submit($form, &$form_state) {
 	// Get needed values from the form to generate the graph
 	$project = $form_state['values']['ct'];
 	$tax = $form_state['values']['tax'];
-	$start_date = $form_state['values']['start_date'];
-	$end_date = $form_state['values']['end_date'];
+	$start_date = strtotime($form_state['values']['start_date']);
+	$end_date = strtotime($form_state['values']['end_date']);
 	
 	// Get graph data
-	$graph = projects_reports_get_graph_data($project, $tax);
+	$graph = projects_reports_get_graph_data($project, $tax, $start_date, $end_date, FALSE);
 	
 	// static data for chart
 	$chart = array(
