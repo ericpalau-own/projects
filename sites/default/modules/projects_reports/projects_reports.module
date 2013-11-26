@@ -164,9 +164,12 @@ function projects_reports_get_table_data($ct, $tax, $csv = FALSE){
  * Get graph data
  * @param $ct string content type
  * @param $tax int Taxonomy id
+ * @param $start_date timestamp The start date from projects must be shown
+ * @param $end_date timestamp The end date to projects must be shown
+ * @param $static boolean Check if the graph data is for static graph or dynamic graph
  * @return Array the chart that need to be rendered
  */
-function projects_reports_get_graph_data($ct, $tax) {
+function projects_reports_get_graph_data($ct, $tax, $start_date = '', $end_date = '', $static = TRUE) {
 	$chart = array();
 	// Get workflow states
   $workflows = workflow_get_workflow_states_by_type($ct);
@@ -187,9 +190,13 @@ function projects_reports_get_graph_data($ct, $tax) {
   // Fill chart data
   foreach ($workflows as $key => $wf) {
     $row = array();
-    $label = '';
-    // Prepare label
-    $label = (($wf->state == 'completed') ? $wf->state .' in '.$prev_month : $wf->state .' in '.$current_month);
+    // Prepare label depending on the $static var
+    // For $static = FALSE, the label is directly the state name
+    $label = $wf->state;
+    // For $static = TRUE, the label must include the current / previous month
+    if ($static) {
+	    $label = (($wf->state == 'completed' || $wf->state == 'Deployment') ? $wf->state .' in '.$prev_month : $wf->state .' in '.$current_month);
+    }
     $chart[$wf->state] = array(
      '#type' => 'chart_data',
      '#title' => $label,
@@ -197,6 +204,16 @@ function projects_reports_get_graph_data($ct, $tax) {
     // Prepare each row data
     foreach ($clients as $client) {
       $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+      //Check if the start date and end date are set
+      if ($start_date !== '' || $end_date !== '') {
+      	// Check all the returned nodes with the start date and end date, to show only the nodes with transitions between these dates
+      	foreach ($nodes_related_pro as $nid_key => $nid) {
+      		// IF the node doesn't have any transition between these dates, we remove from the final array
+      		if (projects_reports_check_dates($nid, $start_date, $end_date) === FALSE) {
+      			unset($nodes_related_pro[$nid_key]);
+      		}
+      	}
+      }
       //Store them in the row array
       $row[] = count($nodes_related_pro);
     }
@@ -282,11 +299,9 @@ function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $l
   // HACK INIT
   // We join the workflow status here, to get only the needed nodes
   $query->join('workflow_node', 'wn', 't.nid=wn.nid');
-  $query->addField('wn', 'sid');
-  $query->condition('sid', $sid);
+  $query->condition('wn.sid', $sid);
   // HACK END
   $query->addField('t', 'nid');
-  $query->addField('t', 'tid');
   foreach ($order as $field => $direction) {
     $query->orderBy($field, $direction);
     // ORDER BY fields need to be loaded too, assume they are in the form
@@ -344,11 +359,9 @@ function projects_reports_taxonomy_select_nodes_by_ct($tid, $pager = TRUE, $limi
   // HACK INIT
   // We join the node.type here (content type), to get only the needed nodes
   $query->join('node', 'n', 't.nid=n.nid');
-  $query->addField('n', 'type');
-  $query->condition('type', $ct);
+  $query->condition('n.type', $ct);
   // HACK END
   $query->addField('t', 'nid');
-  $query->addField('t', 'tid');
   foreach ($order as $field => $direction) {
     $query->orderBy($field, $direction);
     // ORDER BY fields need to be loaded too, assume they are in the form
@@ -357,6 +370,26 @@ function projects_reports_taxonomy_select_nodes_by_ct($tid, $pager = TRUE, $limi
     $query->addField($table_alias, $name);
   }
   return $query->execute()->fetchCol();
+}
+
+/**
+ * Check if the node has workflow history between dates
+ * @param unknown_type $nid
+ * @param unknown_type $start_date
+ * @param unknown_type $end_date
+ * @return boolean FALSE if no workflow transition is between the dates, otherwise TRUE 
+ */
+function projects_reports_check_dates($nid, $start_date, $end_date) {
+  // Get workflow changes in history
+  $workflow_history = workflow_get_workflow_node_history_by_nid($nid);
+  foreach ($workflow_history as $transition) {
+  	// Check if there is any transition with the timestamp greather or equal than the start_date and lower or equal than the end date 
+  	// Also check the previous state is not the (creation) one
+  	if ($transition->stamp >= $start_date && $transition->stamp <= $end_date && $transition->old_sid != 1 && $transition->old_sid != 9) {
+  		return TRUE;
+  	}
+  }
+	return FALSE;
 }
 
 /**
