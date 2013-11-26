@@ -11,7 +11,9 @@ td.highlight {
 	text-align: center;
 	text-decoration: underline;
 }
-.page-taxonomy-term table caption {
+.page-taxonomy-term table caption,
+.page-projects table caption,
+.page-engagements table caption {
 	font-weight: bold;
 	font-size: 1.5em;
 	text-transform: capitalize;
@@ -39,6 +41,7 @@ td.highlight {
 .highcharts-container{
 	clear: left;
 }
+
 /**
  * FILTERING OPTIONS
  */
@@ -59,4 +62,9 @@ td.highlight {
 	float: left; 
 	margin-right: 10px;
 }
-.view-projects-20-event-calendar .views-exposed-form .bef-secondary-options div{
+
+#views-exposed-form-projects-tracker-page .form-item.form-type-radio.form-item-type {
+	float: left;
+	margin-right: 30px;
+}
+.form-item{position:relative;}
