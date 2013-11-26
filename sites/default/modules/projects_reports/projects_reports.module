@@ -205,7 +205,7 @@ function projects_reports_get_graph_data($ct, $tax, $start_date = '', $end_date 
     foreach ($clients as $client) {
       $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
       //Check if the start date and end date are set
-      if ($start_date !== '' || $end_date !== '') {
+      if (!empty($start_date) && !empty($end_date)) {
       	// Check all the returned nodes with the start date and end date, to show only the nodes with transitions between these dates
       	foreach ($nodes_related_pro as $nid_key => $nid) {
       		// IF the node doesn't have any transition between these dates, we remove from the final array
