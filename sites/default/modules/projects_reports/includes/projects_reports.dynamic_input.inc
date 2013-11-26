@@ -6,7 +6,8 @@ function projects_reports_clients_page_3() {
   $output = '';
   
   // Add input form 
-  $output .= drupal_render(drupal_get_form('projects_reports_dynamic_input_form'));
+  $dynamic_form = drupal_get_form('projects_reports_dynamic_input_form');
+  $output .= drupal_render($dynamic_form);
   
   return $output;
 }
@@ -127,8 +128,8 @@ function _load_ct_tax_types($ct_id) {
 		  break;
   	case 'engagement':
 		  $tax[3] = 'Clients';
-		  $tax[7] = 'Engagement type';
-		  $tax[9] = 'Countries';
+		  $tax[7] = 'Categories';
+		  $tax[9] = 'Location';
 		  $tax[1] = 'Tags';
 		  break;
   		
