@@ -34,13 +34,29 @@ td.highlight {
  * DYNAMIC GRAPH TAB
  */
 #edit-ct-markup,
-#edit-tax-markup{
+#edit-tax-markup,
+#edit-start-date-markup,
+#edit-end-date-markup{
 	float: left;
-	width: 50%;
+	width: 25%;
 }
 .highcharts-container{
 	clear: left;
 }
+#projects-reports-dynamic-input-form .fieldset-wrapper div.form-item-ct, 
+#projects-reports-dynamic-input-form .fieldset-wrapper div#tax-wrapper, 
+#projects-reports-dynamic-input-form .fieldset-wrapper div.container-inline-date{
+	float:left;
+	width: 25%;
+	clear: none;
+}	
+#projects-reports-dynamic-input-form .fieldset-wrapper div.container-inline-date .date-padding{
+	padding:0;
+}
+#projects-reports-dynamic-input-form .fieldset-wrapper div.container-inline-date .date-padding label{
+	display: none;
+}
+	
 
 /**
  * FILTERING OPTIONS
