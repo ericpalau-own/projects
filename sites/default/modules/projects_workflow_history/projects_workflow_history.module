@@ -1,0 +1,225 @@
+<?php
+
+/**
+ * @file
+ * Create a new page to change workflow history dates
+ */
+
+
+/**
+ * Implements hook_menu().
+ */
+function projects_workflow_history_menu() {
+  $items = array();
+  $items['node/%node/workflow-history'] = array(
+    'title' => 'Workflow History',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'projects_workflow_history_node_tab',
+    'page arguments' => array(1),
+    'access callback' => 'workflow_node_tab_access',
+    'access arguments' => array(1),
+    'weight' => '3'
+  );
+  $items['workflow-log/%workflow_history_state_transition_record'] = array(// maps to function workflow_history_state_transition_record_load()
+    'title' => 'Edit workflow log',
+    'description' => 'Edit workflow state transition information.',
+    'file' => 'includes/projects_workflow_history_edit_form.inc',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('projects_workflow_history_edit_form', 1),
+    'access arguments' => array(TRUE),
+  );
+  return $items;
+}
+
+/**
+ * Load function belonging to the above menu option 'workflow-log/%workflow-state-transition-record'.
+ * Maps to this function just like 'node/%node' maps to node_load().
+ *
+ * @param $hid
+ *   The ID of the workflow state transition record to load.
+ * @return
+ *   object representing one row from the {workflow_node_history} table
+ */
+function workflow_history_state_transition_record_load($hid) {
+  $result = db_query('SELECT * FROM {workflow_node_history} WHERE hid = :hid', array(':hid' => $hid));
+  $workflow_history_state_transition_record = $result->fetchObject();
+  return $workflow_history_state_transition_record;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function projects_workflow_history_theme() {
+  return array(
+    'projects_workflow_history_table_row' => array(
+      'variables' => array(
+        'history' => NULL,
+        'old_state_name' => NULL,
+        'state_name' => NULL
+        ),
+      ),
+    'projects_workflow_history_table' => array(
+      'variables' => array(
+        'rows' => array(),
+        'footer' => NULL,
+        ),
+      ),
+    'projects_workflow_history_current_state' => array(
+      'variables' => array(
+        'state_name' => NULL,
+        'state_system_name' => NULL,
+        'sid' => NULL,
+        ),
+      ),
+    'projects_workflow_history_deleted_state' => array(
+      'variables' => array(
+        'state_name' => NULL,
+        'state_system_name' => NULL,
+        'sid' => NULL,
+        ),
+      ),
+    );
+}
+
+function projects_workflow_history_node_tab($node = NULL) {
+  drupal_set_title($node->title);
+  $workflow = workflow_get_workflow_type_map_by_type($node->type);
+  $states = array();
+  $state_system_names = array();
+  foreach (workflow_get_workflow_states() as $data) {
+    $states[$data->sid] = check_plain(t($data->state));
+    $state_system_names[$data->sid] = check_plain($data->state);
+  }
+	
+  $deleted_states = array();
+  $deleted_state_system_names = array();
+  $options = array('status' => 0);
+  foreach (workflow_get_workflow_states($options) as $data) {
+    $deleted_states[$data->sid] = check_plain(t($data->state));
+    $deleted_state_system_names[$data->sid] = check_plain($data->state);
+  }
+  $current = workflow_node_current_state($node);
+
+  // theme_projects_workflow_history_current_state() must run state through check_plain().
+  $current_state = theme('projects_workflow_history_current_state', array('state_name' => $states[$current], 'state_system_name' => $state_system_names[$current], 'sid' => $current));
+
+  $output = theme('projects_workflow_history_current_state', array('state' => $states[$current], 'state_system_name' => $state_system_names[$current], 'sid' => $current));
+
+  $rows = array();
+  foreach (workflow_get_workflow_node_history_by_nid($node->nid) as $history) {
+    if ($history->sid == $current && !isset($deleted_states[$history->sid]) && !isset($current_themed)) {
+      // Theme the current state differently so it stands out.
+      $state_name = theme('projects_workflow_history_current_state',  array('state_name' => $states[$history->sid], 'state_system_name' => $state_system_names[$history->sid], 'sid' => $history->sid));
+      // Make a note that we have themed the current state; other times in the history
+      // of this node where the node was in this state do not need to be specially themed.
+      $current_themed = TRUE;
+    }
+    elseif (isset($deleted_states[$history->sid])) {
+      // The state has been deleted, but we include it in the history.
+      $state_name = theme('projects_workflow_history_deleted_state', array('state_name' => $deleted_states[$history->sid], 'state_system_name' => $deleted_state_system_names[$history->sid], 'sid' => $history->sid));
+      $footer_needed = TRUE;
+    }
+    else {
+      // Regular state.
+      $state_name = check_plain(t($states[$history->sid]));
+    }
+    if (isset($deleted_states[$history->old_sid])) {
+      $old_state_name = theme('projects_workflow_history_deleted_state', array('state_name' => $deleted_states[$history->old_sid], 'state_system_name' => $deleted_state_system_names[$history->old_sid], 'sid' => $history->old_sid));
+      $footer_needed = TRUE;
+    }
+    elseif (isset($states[$history->old_sid])) {
+      $old_state_name = check_plain(t($states[$history->old_sid]));
+    }
+    else {
+      $old_state_name = '*';
+    }
+
+    $variables = array(
+        'history' => $history,
+        'old_sid' => $history->old_sid,
+        'old_state_name' => $old_state_name,
+        'sid' => $history->sid,
+        'uid' => $history->uid,
+        'state_name' => $state_name,
+        );
+
+    // Allow other modules to modify the row.
+    drupal_alter('workflow_history', $variables);
+
+    $rows[] = theme('projects_workflow_history_table_row', $variables);
+  }
+  
+  dsm($rows);
+
+  // Mark the first and last rows.
+  $rows[0]['class'][] = 'first';
+  $last = count($rows) - 1;
+  $rows[$last]['class'][] = 'last';
+
+  // Only display the table if there's anything in it.
+  if ($rows) {
+    $output .= theme('projects_workflow_history_table', array('rows' => $rows, 'footer' => !empty($footer_needed)));
+    $output .= theme('pager', array('tags' => variable_get('workflow_states_per_page', 20)));
+  }
+  return $output;
+}
+
+/*
+ * Theme one workflow history table row.
+ *
+ * $old_state_name and $state_name must be run through check_plain(t()) prior
+ * to calling this theme function.
+ */
+function theme_projects_workflow_history_table_row($variables) {
+  $row = array();
+  $old_state_name = $variables['old_state_name'];
+  $state_name = $variables['state_name'];
+  $history = $variables['history'];
+  $account = user_load($variables['uid']);
+  $row = array(
+    'data' => array(
+      array('data' => format_date($history->stamp), 'class' => array('timestamp')),
+      array('data' => $old_state_name, 'class' => array('previous-state-name')),
+      array('data' => $state_name, 'class' => array('state-name')),
+      array('data' => theme('username', array('account' => $account)), 'class' => array('user-name')),
+      array('data' => filter_xss($history->comment), 'class' => array('log-comment')),
+      array('data' => l('edit', 'workflow-log/'.$variables['history']->hid)),
+      ),
+    'class' => array('projects_workflow_history_row'),
+    );
+
+  if (!empty($variables['extra'])) {
+    $row['data'][] = $variables['extra'];
+  }
+
+  return $row;
+}
+
+/*
+ * Theme entire workflow history table.
+ */
+function theme_projects_workflow_history_table($variables) {
+  $rows = $variables['rows'];
+  $footer = $variables['footer'];
+  $headers = array(t('Date'), t('Old State'), t('New State'), t('By'), t('Comment'), t('Edit'));
+  $output = theme('table', array('header' => $headers, 'rows' => $rows, 'caption' => t('Workflow History')));
+  if ($footer) {
+    $output .= t('*State is no longer available.');
+  }
+  return $output;
+}
+
+/**
+ * Theme the current state in the workflow history table.
+ */
+function theme_projects_workflow_history_current_state($variables) {
+  return check_plain(t($variables['state_name']));
+}
+
+/**
+ * Theme a deleted state in the workflow history table.
+ */
+function theme_projects_workflow_history_current_state_deleted_state($variables) {
+  return check_plain(t($variables['state_name'])) . '*';
+}
+

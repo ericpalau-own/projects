@@ -1,0 +1,6 @@
+name = projects Workflow history
+description = "Module to adapt workflow functionality to projects"
+package = projects
+core = 7.x
+
+dependences[] = workflow
