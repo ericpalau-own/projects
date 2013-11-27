@@ -1,0 +1,86 @@
+.highlight {
+	font-weight: bold;
+}
+td.highlight {
+	background: yellow;
+}
+.page-taxonomy-term .view-grouping-header{
+	font-weight: bold;
+	font-size: 1.8em;
+	text-transform: capitalize;
+	text-align: center;
+	text-decoration: underline;
+}
+.page-taxonomy-term table caption,
+.page-projects table caption,
+.page-engagements table caption {
+	font-weight: bold;
+	font-size: 1.5em;
+	text-transform: capitalize;
+	text-align: center;
+}
+#edit-event-calendar-date {
+	clear:left;
+	margin-top: 20px;
+	display: block;
+	overflow: hidden;
+}
+#edit-field-event-calendar-type-und div{
+	float:left;
+	margin-right: 25px;
+}
+
+/**
+ * DYNAMIC GRAPH TAB
+ */
+#edit-ct-markup,
+#edit-tax-markup,
+#edit-start-date-markup,
+#edit-end-date-markup{
+	float: left;
+	width: 25%;
+}
+.highcharts-container{
+	clear: left;
+}
+#projects-reports-dynamic-input-form .fieldset-wrapper div.form-item-ct, 
+#projects-reports-dynamic-input-form .fieldset-wrapper div#tax-wrapper, 
+#projects-reports-dynamic-input-form .fieldset-wrapper div.container-inline-date{
+	float:left;
+	width: 25%;
+	clear: none;
+}	
+#projects-reports-dynamic-input-form .fieldset-wrapper div.container-inline-date .date-padding{
+	padding:0;
+}
+#projects-reports-dynamic-input-form .fieldset-wrapper div.container-inline-date .date-padding label{
+	display: none;
+}
+	
+
+/**
+ * FILTERING OPTIONS
+ */
+.region-sidebar-first .views-exposed-widget {
+	width: 100%;
+}
+.view-projects-20-event-calendar .date-nav,
+.view-projects-20-event-calendar .date-nav-wrapper,
+.view-projects-20-event-calendar .date-nav-wrapper .date-heading,
+.view-projects-20-event-calendar .date-nav-wrapper ul.pager{
+	margin: 0 !important;
+	padding: 0 !important;
+}
+.view-projects-20-event-calendar .views-exposed-form .views-exposed-widget{
+	float: none; 
+}
+.view-projects-20-event-calendar .views-exposed-form .bef-secondary-options div{
+	float: left; 
+	margin-right: 10px;
+}
+
+#views-exposed-form-projects-tracker-page .form-item.form-type-radio.form-item-type {
+	float: left;
+	margin-right: 30px;
+}
+.form-item{position:relative;}
