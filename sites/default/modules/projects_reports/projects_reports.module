@@ -14,11 +14,48 @@
 function projects_reports_menu() {
   $items = array();
   $items['reports/clients'] = array(
-    'title' => 'Client reports',
+    'title' => 'Reports',
+    'file' => 'includes/projects_reports.projects.inc',
     'page callback' => 'projects_reports_clients_page',
     'access arguments' => array('access clients reports'),
     'type' => MENU_NORMAL_ITEM,
     'menu_name' => 'main-menu'
+  );
+  $items['reports/clients/projects'] = array(
+    'title' => 'Projects reports',
+    'file' => 'includes/projects_reports.projects.inc',
+    'page callback' => 'projects_reports_clients_page',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 2
+  );
+  $items['reports/clients/engagements'] = array(
+    'title' => 'Engagements reports',
+    'file' => 'includes/projects_reports.engagements.inc',
+    'page callback' => 'projects_reports_clients_page_2',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5
+  );
+  $items['reports/clients/full_reports'] = array(
+    'title' => 'Dynamic reports',
+    'file' => 'includes/projects_reports.dynamic_input.inc',
+    'page callback' => 'projects_reports_clients_page_3',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 7
+  );
+  $items['reports/clients/projects_csv'] = array(
+    'title' => 'Client reports',
+    'page callback' => 'projects_reports_clients_csv',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['reports/clients/engagements_csv'] = array(
+    'title' => 'Client reports',
+    'page callback' => 'projects_reports_clients_csv_2',
+    'access arguments' => array('access clients reports'),
+    'type' => MENU_CALLBACK,
   );
   return $items;
 }
@@ -36,88 +73,115 @@ function projects_reports_permission() {
 }
 
 /**
- * Implements hook_theme().
+ * Get tabla data
+ * @param $ct string content type
+ * @param $tax int Taxonomy id
+ * @param $csv boolean Return data to be applied to the csv
+ * @return Array
+ *    'header' => table header 
+ *    'rows' => all rows from the table
  */
-function projects_reports_theme() {
-  return array(
-    'projects_reports_graph' => array(
-      'variables' => array(
-        'chart_data' => NULL,
-        'workflow' => NULL,
-      ),
-    ),
-  );
-}
-
-function projects_reports_clients_page() {
-	$output = '';
-	
-	// Add table
-	$output .= projects_reports_clients_table();
-
-	// Add example grapsh
-//	$output .= projects_reports_clients_example_graph();
-	
-	// Add google chart
-//	$output .= projects_reports_clients_graph();
-
-	// Add highcharts graph
-	$output .= projects_reports_clients_graph2();
-	
-	return $output;
-}
-
-/**
- * 
- * Add example graph
- */
-function projects_reports_clients_example_graph() {
-	$chart = array(
-      '#chart_id' => 'test_chart',
-      '#title' => chart_title(t('Bar Chart'), '0000ee', 15),
-      '#type' => CHART_TYPE_BAR_V,
-      '#size' => chart_size(400, 200),
-      '#grid_lines' => chart_grid_lines(10, 5),
-      '#bar_size' => chart_bar_size(15, 5), 
-    );
-	
-	  $chart['#data'][] = array(30, 20, 10, 40);
-	  $chart['#data'][] = array(30, 20, 10, 40);
-	  $chart['#data'][] = array(30, 20, 10, 40);
-
-	  $chart['#labels'][] = 'a';
-	  $chart['#labels'][] = 'b';
-	  $chart['#labels'][] = 'c';
-	  $chart['#labels'][] = 'd';
-	  
-	  $chart['#data_colors'][] = chart_unique_color('test_a');
-	  $chart['#data_colors'][] = chart_unique_color('test_b');
-	  $chart['#data_colors'][] = chart_unique_color('test_c');
-	  
-	  return theme('chart', array('chart' => $chart));
-}
-
-/**
- * Highcharts graph
- */
-function projects_reports_clients_graph2() {
-  $chart = array(
-    '#type' => 'chart',
-    '#chart_type' => 'column',
-    '#title' => t('Client reports graph'),
-    '#chart_library' => 'highcharts',
-    '#stacking' => TRUE,
-    '#height' => '500',
-  );
+function projects_reports_get_table_data($ct, $tax, $csv = FALSE){
+  // Get clients list
+  $clients = taxonomy_get_tree($tax);
+  
+  //Remove clients without nodes
+  $clients = projects_reports_unset_empty_taxonomies($clients, $ct);
   
   // Get workflow states
-  $workflows = workflow_get_workflow_states_by_type('project');
-  // Delete creation workflow, not needed
+  $workflows = workflow_get_workflow_states_by_type($ct);
+  
+  // Unset creation state and to do state
   unset($workflows[0]);
+  unset($workflows[1]);
+
+  // Prepare table header
+  $header = array();
+
+  // First header item is static. It will contain the status column
+  $header[] = t('status');  
+  
+  // Add a header entry foreach client
+  foreach ($clients as $client) {
+    // Add client to the header list
+    $header[] = $client->name;
+  }
+  
+  // Last header item is static. It will contain the sum of each row, the status total projects
+  if ($csv) {
+    $header[] = t('total');
+  } 
+  else {
+    $header[] = array(
+      'data' => t('total'),
+      'class' => 'highlight'
+    );
+  }
+    
+  // Initialize table data.  
+  $rows = array();
+  
+  // Prepare content data 
+  // Each row will be a workflow status
+  foreach ($workflows as $key => $wf) {
+    $row = array();
+    // Initialize total project cont for workflow status
+    $total_project_cont = 0;
+    
+    // The first item for each row will be the workflow status label
+    $row[] = $wf->state;
+    
+    // Foreach client, we check the number of projects for the current state and add them to the row array
+    foreach ($clients as $client) {
+      // We init the project cont
+      $nodes_related_pro = 0;
+      // Get all project from client $client with the status $wf->sid
+      $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+      //Store them in the row array
+      $row[] = count($nodes_related_pro);
+      // We sum the project cont to the total project cont for current workflow status
+      $total_project_cont += count($nodes_related_pro);
+    }
+    
+    if ($csv) {
+      // The last item of the row will be the sum of all project of the current state
+      $row[] = $total_project_cont;
+    } 
+    else {
+      $row[] = array(
+        'data' => $total_project_cont,
+        'class' => 'highlight'
+      );
+    }
+    // Add row to the total rows array
+    $rows[] = $row;
+  }
+  
+  return array('header' => $header, 'rows' => $rows);
+}
+
+/**
+ * Get graph data
+ * @param $ct string content type
+ * @param $tax int Taxonomy id
+ * @param $start_date timestamp The start date from projects must be shown
+ * @param $end_date timestamp The end date to projects must be shown
+ * @param $static boolean Check if the graph data is for static graph or dynamic graph
+ * @return Array the chart that need to be rendered
+ */
+function projects_reports_get_graph_data($ct, $tax, $start_date = '', $end_date = '', $static = TRUE) {
+	$chart = array();
+	// Get workflow states
+  $workflows = workflow_get_workflow_states_by_type($ct);
+  // Delete creation workflow and to do workflow, not needed
+  unset($workflows[0]);
+  unset($workflows[1]);
   //Reverse the array to put in the correct order
   $workflows = array_reverse($workflows);
   // Get clients list
-  $clients = taxonomy_get_tree(3);
+  $clients = taxonomy_get_tree($tax);
+  //Remove clients without nodes
+  $clients = projects_reports_unset_empty_taxonomies($clients, $ct);
 
   // Prepare current and previous months to add them to the label
   $current_month = date('M',time());
@@ -126,16 +190,30 @@ function projects_reports_clients_graph2() {
   // Fill chart data
   foreach ($workflows as $key => $wf) {
     $row = array();
-    $label = '';
-    // Prepare label
-    $label = (($wf->state == 'completed') ? $wf->state .' in '.$prev_month : $wf->state .' in '.$current_month);
+    // Prepare label depending on the $static var
+    // For $static = FALSE, the label is directly the state name
+    $label = $wf->state;
+    // For $static = TRUE, the label must include the current / previous month
+    if ($static) {
+	    $label = (($wf->state == 'completed' || $wf->state == 'Deployment') ? $wf->state .' in '.$prev_month : $wf->state .' in '.$current_month);
+    }
     $chart[$wf->state] = array(
-	   '#type' => 'chart_data',
-	   '#title' => $label,
+     '#type' => 'chart_data',
+     '#title' => $label,
     );
     // Prepare each row data
     foreach ($clients as $client) {
       $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
+      //Check if the start date and end date are set
+      if (!empty($start_date) && !empty($end_date)) {
+      	// Check all the returned nodes with the start date and end date, to show only the nodes with transitions between these dates
+      	foreach ($nodes_related_pro as $nid_key => $nid) {
+      		// IF the node doesn't have any transition between these dates, we remove from the final array
+      		if (projects_reports_check_dates($nid, $start_date, $end_date) === FALSE) {
+      			unset($nodes_related_pro[$nid_key]);
+      		}
+      	}
+      }
       //Store them in the row array
       $row[] = count($nodes_related_pro);
     }
@@ -153,146 +231,26 @@ function projects_reports_clients_graph2() {
     '#labels' => $xaxis,
     '#labels_rotation' => 60
   );
-
-  return drupal_render($chart);
   
+  return $chart;
 }
 
 /**
- * Process requests for 'reports/clients' path.
+ * Function to remove all taxonomy terms that doesn't contain nodes 
+ * @param intthe vocabulary id $voc
+ * @param string $ct the content type
+ * 
+ * @return array the modified list of terms
  */
-
-function projects_reports_clients_graph() {
-	$settings = array(
-    '#chart_id' => 'test_chart2',
-    '#title' => chart_title(t('Monthly Client report graph'), '000000', 30),
-    '#type' => CHART_TYPE_BAR_V,
-    '#size' => chart_size(900, 300),
-    '#bar_size' => chart_bar_size(30, 15), 
-  );
-    
-	$settings['#mixed_axis_labels'][CHART_AXIS_Y_RIGHT][1][] = chart_mixed_axis_label(t('Clients'));
-	$settings['#mixed_axis_labels'][CHART_AXIS_X_TOP][2][] = chart_mixed_axis_label(t('Projects'));
-
-  // Get workflow states
-  $workflows = workflow_get_workflow_states_by_type('project');
-  // Delete creation workflow, not needed
-	unset($workflows[0]);
-  
-  foreach ($workflows as $key => $wf) {
-    $settings['#legends'][] = $wf->state;
-    $settings['#data_colors'][] = chart_unique_color($wf->state, 'workflow');
+function projects_reports_unset_empty_taxonomies($voc, $ct) {
+  foreach ($voc as $key => $client) {
+    $cl_nodes = projects_reports_taxonomy_select_nodes_by_ct($client->tid, false, false, array(), $ct);
+    if (is_array($cl_nodes) && empty($cl_nodes)) {
+      unset($voc[$key]);
+    }
   }
-	// Get clients list
-	$num_projects_per_client = array();
-  $clients = taxonomy_get_tree(3);
-  foreach ($clients as $key => $cl) {
-//  	$settings['#labels'][] = $cl->name;
-  	$settings['#labels'][] = $cl->tid;
-  	$num_projects_per_client[] = count(taxonomy_select_nodes($cl->tid, FALSE, FALSE, array()));
-  }
-  
-  // Fill chart data
-    foreach ($workflows as $key => $wf) {
-      $row = array();
-      foreach ($clients as $client) {
-	      $nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
-	      //Store them in the row array
-	      $row[] = count($nodes_related_pro);
-	    }
-    $settings['#data'][] = $row;
-  }
-  
-  // Add Y max value
-//  $settings['#mixed_axis_labels'][CHART_AXIS_Y_LEFT][0][] = chart_mixed_axis_range_label(0, max($num_projects_per_client)*2);
-  
-  $settings['#adjust_resolution'] = array(
-    '#adjust' => TRUE,
-    '#max' => max($num_projects_per_client)+1,
-  );
-  
-  return theme('chart', array('chart' => $settings));
+  return $voc;
 }
-
-/**
- * Process requests for 'reports/clients' path.
- */
-function projects_reports_clients_table() {
-  // Get clients list
-  $clients = taxonomy_get_tree(3);
-  
-  // Get workflow states
-  $workflows = workflow_get_workflow_states_by_type('project');
-  
-  // Unset creation state
-  unset($workflows[0]);
-
-  // Prepare table header
-  $header = array();
-
-  // First header item is static. It will contain the status column
-  $header[] = t('status');  
-  
-  // Add a header entry foreach client
-  foreach ($clients as $client) {
-    // Add client to the header list
-    $header[] = $client->name;
-  }
-  
-  // Last header item is static. It will contain the sum of each row, the status total projects
-  $header[] = array(
-     'data' => t('total'),
-     'class' => 'highlight'
-    );
-    
-  // Initialize table data.  
-  $rows = array();
-  
-  // Prepare content data 
-  // Each row will be a workflow status
-  foreach ($workflows as $key => $wf) {
-  	$row = array();
-  	// Initialize total project cont for workflow status
-  	$total_project_cont = 0;
-  	
-  	// The first item for each row will be the workflow status label
-  	$row[] = $wf->state;
-  	
-  	// Foreach client, we check the number of projects for the current state and add them to the row array
-	  foreach ($clients as $client) {
-	  	// We init the project cont
-	  	$nodes_related_pro = 0;
-	  	// Get all project from client $client with the status $wf->sid
-	  	$nodes_related_pro = projects_reports_taxonomy_select_nodes_by_state($client->tid, false, false, array(), $wf->sid);
-	  	//Store them in the row array
-	  	$row[] = count($nodes_related_pro);
-	  	// We sum the project cont to the total project cont for current workflow status
-	  	$total_project_cont += count($nodes_related_pro);
-	  }
-	  // The last item of the row will be the sum of all project of the current state
-	  $row[] = array(
-	   'data' => $total_project_cont,
-	   'class' => 'highlight'
-	  );
-	  // Add row to the total rows array
-	  $rows[] = $row;
-  }
-  
-  // Prepare table to theme it
-  $variables = array(
-    'header' => $header,
-    'rows' => $rows,
-    'attributes' => array(),
-    'caption' => '',
-    'colgroups' => array(),
-    'sticky' => '',
-    'empty' => t('No projects found'),
-  );
-  
-  // Return themed table
-  return theme_table($variables);
-}
-
 
 /**
  * Return nodes attached to a term with current state attached to the workflow state across all field instances .
@@ -341,11 +299,9 @@ function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $l
   // HACK INIT
   // We join the workflow status here, to get only the needed nodes
   $query->join('workflow_node', 'wn', 't.nid=wn.nid');
-  $query->addField('wn', 'sid');
-  $query->condition('sid', $sid);
+  $query->condition('wn.sid', $sid);
   // HACK END
   $query->addField('t', 'nid');
-  $query->addField('t', 'tid');
   foreach ($order as $field => $direction) {
     $query->orderBy($field, $direction);
     // ORDER BY fields need to be loaded too, assume they are in the form
@@ -356,16 +312,151 @@ function projects_reports_taxonomy_select_nodes_by_state($tid, $pager = TRUE, $l
   return $query->execute()->fetchCol();
 }
 
+/**
+ * Return nodes attached to a term with the specified content type across all field instances .
+ *
+ * This function requires taxonomy module to be maintaining its own tables,
+ * and will return an empty array if it is not. If using other field storage
+ * methods alternatives methods for listing terms will need to be used.
+ *
+ * @param $tid
+ *   The term ID.
+ * @param $pager
+ *   Boolean to indicate whether a pager should be used.
+ * @param $limit
+ *   Integer. The maximum number of nodes to find.
+ *   Set to FALSE for no limit.
+ * @param $order
+ *   An array of fields and directions.
+ * @param $ct
+ *   The content type
+ *
+ * @return
+ *   An array of nids matching the query.
+ */
+function projects_reports_taxonomy_select_nodes_by_ct($tid, $pager = TRUE, $limit = FALSE, $order = array('t.sticky' => 'DESC', 't.created' => 'DESC'), $ct) {
+  if (!variable_get('taxonomy_maintain_index_table', TRUE)) {
+    return array();
+  }
+  $query = db_select('taxonomy_index', 't');
+  $query->addTag('node_access');
+  $query->condition('tid', $tid);
+  if ($pager) {
+    $count_query = clone $query;
+    $count_query->addExpression('COUNT(t.nid)');
 
-function projects_reports_chart_color_schemes() {
-  return array(
-    'workflow' => array(
-      'start' => 'FA5858',
-      'intercomms' => 'FAAC58',
-      'on going' => 'F4FA58',
-      'blocked' => 'ACFA58',
-	    'delayed' => '58FA58',
-	    'completed' => '5882FA',
-    ),
-  );
+    $query = $query->extend('PagerDefault');
+    if ($limit !== FALSE) {
+      $query = $query->limit($limit);
+    }
+    $query->setCountQuery($count_query);
+  }
+  else {
+    if ($limit !== FALSE) {
+      $query->range(0, $limit);
+    }
+  }
+  // HACK INIT
+  // We join the node.type here (content type), to get only the needed nodes
+  $query->join('node', 'n', 't.nid=n.nid');
+  $query->condition('n.type', $ct);
+  // HACK END
+  $query->addField('t', 'nid');
+  foreach ($order as $field => $direction) {
+    $query->orderBy($field, $direction);
+    // ORDER BY fields need to be loaded too, assume they are in the form
+    // table_alias.name
+    list($table_alias, $name) = explode('.', $field);
+    $query->addField($table_alias, $name);
+  }
+  return $query->execute()->fetchCol();
 }
+
+/**
+ * Check if the node has workflow history between dates
+ * @param unknown_type $nid
+ * @param unknown_type $start_date
+ * @param unknown_type $end_date
+ * @return boolean FALSE if no workflow transition is between the dates, otherwise TRUE 
+ */
+function projects_reports_check_dates($nid, $start_date, $end_date) {
+  // Get workflow changes in history
+  $workflow_history = workflow_get_workflow_node_history_by_nid($nid);
+  foreach ($workflow_history as $transition) {
+  	// Check if there is any transition with the timestamp greather or equal than the start_date and lower or equal than the end date 
+  	// Also check the previous state is not the (creation) one
+  	if ($transition->stamp >= $start_date && $transition->stamp <= $end_date && $transition->old_sid != 1 && $transition->old_sid != 9) {
+  		return TRUE;
+  	}
+  }
+	return FALSE;
+}
+
+/**
+ * Exports a CSV.
+ *
+ * @param array $variables
+ *   An associative array of data containing "header" and "rows" keys.
+ *   This is ready to be passed to theme_table(). See api.drupal.org/node/22950.
+ *   Also contains the key "filename" specifying the filename.
+ */
+function projects_reports_clients_csv() {
+  // Get table data
+  $variables = projects_reports_get_table_data('project', 3, TRUE);
+  
+  // Add filename
+  $variables['filename'] = 'projects.csv';
+  
+  // Prepare csv headers
+  drupal_add_http_header('Content-Type', 'text/csv; utf-8');
+  drupal_add_http_header('Content-Disposition', 'attachment; filename=' . $variables['filename']);
+
+  $output = '';
+  $keys = array();
+  foreach ($variables['header'] as $key => $value) {
+    $keys[] = $value;
+  }
+  if ($keys) {
+    $output .= implode(",", $keys) . "\r\n";
+  }
+  foreach ($variables['rows'] as $value) {
+    $output .= implode(",", $value) . "\r\n";
+  }
+  print $output;
+  exit;
+}
+
+/**
+ * Exports a CSV.
+ *
+ * @param array $variables
+ *   An associative array of data containing "header" and "rows" keys.
+ *   This is ready to be passed to theme_table(). See api.drupal.org/node/22950.
+ *   Also contains the key "filename" specifying the filename.
+ */
+function projects_reports_clients_csv_2() {
+  // Get table data
+  $variables = projects_reports_get_table_data('engagement', 3, TRUE);
+  
+  // Add filename
+  $variables['filename'] = 'engagements.csv';
+  
+  // Prepare csv headers
+  drupal_add_http_header('Content-Type', 'text/csv; utf-8');
+  drupal_add_http_header('Content-Disposition', 'attachment; filename=' . $variables['filename']);
+
+  $output = '';
+  $keys = array();
+  foreach ($variables['header'] as $key => $value) {
+    $keys[] = $value;
+  }
+  if ($keys) {
+    $output .= implode(",", $keys) . "\r\n";
+  }
+  foreach ($variables['rows'] as $value) {
+    $output .= implode(",", $value) . "\r\n";
+  }
+  print $output;
+  exit;
+}
+
