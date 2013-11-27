@@ -1,0 +1,10 @@
+name = projects Reports
+description = "Module that creates a new page with client needed reports"
+package = projects
+core = 7.x
+
+dependencies[] = workflow
+dependencies[] = taxonomy
+
+stylesheets[all][] = css/projects_reports.css
+
