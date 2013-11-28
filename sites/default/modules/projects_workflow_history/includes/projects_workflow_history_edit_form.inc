@@ -4,7 +4,6 @@
  * allow the user to modify and save it.
  */
 function projects_workflow_history_edit_form($form, $form_state, $workflow_history_state_transition_record) {
-	dsm($workflow_history_state_transition_record);
   $form = array();
   $form['hid'] = array(
     '#type' => 'value',
@@ -24,7 +23,8 @@ function projects_workflow_history_edit_form($form, $form_state, $workflow_histo
   $form['workflow']['workflow_date'] = array(
     '#title' => t('Start date'),
     '#type' => 'date_popup',
-    '#default_value' => $workflow_history_state_transition_record->stamp,
+    '#date_format' => 'Y-m-d H:i',
+    '#default_value' => date('Y-m-d H:i', $workflow_history_state_transition_record->stamp),
   );
   $form['submit'] = array(
     '#type' => 'submit',
