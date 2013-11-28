@@ -26,9 +26,21 @@ function projects_workflow_history_menu() {
     'file' => 'includes/projects_workflow_history_edit_form.inc',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('projects_workflow_history_edit_form', 1),
-    'access arguments' => array(TRUE),
+    'access arguments' => array('edit workflow history'),
   );
   return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function projects_workflow_history_permission() {
+  return array(
+    'edit workflow history' => array(
+      'title' => t('Edit workflow history'),
+      'description' => t('Edit date and comments for each workflow history transaction'),
+    ),
+  );
 }
 
 /**
