@@ -48,8 +48,7 @@ function projects_workflow_history_edit_form_submit($form, &$form_state) {
   $stamp =  strtotime($form_state['values']['workflow_date']);
   /* db_query("UPDATE {workflow_node_history} SET comment = '%s' WHERE hid = %d", $comment, $hid) */
   db_update('workflow_node_history')
-    ->fields(array('comment' => $comment))
-    ->fields(array('stamp' => $stamp))
+    ->fields(array('comment' => $comment, 'stamp' => $stamp))
     ->condition('hid', $hid)
     ->execute();
 
