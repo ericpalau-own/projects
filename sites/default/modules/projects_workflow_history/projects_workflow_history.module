@@ -161,8 +161,6 @@ function projects_workflow_history_node_tab($node = NULL) {
     $rows[] = theme('projects_workflow_history_table_row', $variables);
   }
   
-  dsm($rows);
-
   // Mark the first and last rows.
   $rows[0]['class'][] = 'first';
   $last = count($rows) - 1;

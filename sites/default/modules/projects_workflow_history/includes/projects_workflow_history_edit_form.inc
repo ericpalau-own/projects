@@ -17,14 +17,17 @@ function projects_workflow_history_edit_form($form, $form_state, $workflow_histo
     '#type' => 'textarea',
     '#title' => t('Comment'),
     '#description' => t('Modify this workflow state transition comment and press submit.'),
+    '#required' => TRUE,
     '#default_value' => $workflow_history_state_transition_record->comment,
     '#rows' => 2,
   );
   $form['workflow']['workflow_date'] = array(
-    '#title' => t('Start date'),
     '#type' => 'date_popup',
-    '#date_format' => 'Y-m-d H:i',
+    '#title' => t('Start date'),
+    '#description' => t('Modify this workflow state transition date and press submit.'),
+    '#required' => TRUE,
     '#default_value' => date('Y-m-d H:i', $workflow_history_state_transition_record->stamp),
+    '#date_format' => 'Y-m-d H:i',
   );
   $form['submit'] = array(
     '#type' => 'submit',
